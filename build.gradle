@@ -1,0 +1,72 @@
+plugins {
+  id 'fabric-loom' version '1.6.+'
+  id "com.modrinth.minotaur" version "2.+"
+}
+
+import com.modrinth.minotaur.TaskModrinthUpload
+
+archivesBaseName = project.archives_base_name
+version = project.mod_version + "+" + project.minecraft_version
+group = project.maven_group
+
+repositories {
+  maven { url = "https://maven.nucleoid.xyz" }
+  maven { url = "https://maven.gegy.dev/" }
+  maven { url = "https://jitpack.io" }
+  maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+  maven { url 'https://maven.enginehub.org/repo/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation include('xyz.nucleoid:stimuli:0.4.8+1.20.1')
+    
+// WorldEdit for 1.20.1
+modCompileOnly 'com.sk89q.worldedit:worldedit-fabric-mc1.20:7.2.15'
+
+    modCompileOnly "dev.gegy:player-roles-api:1.6.7"
+    modCompileOnly "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
+}
+
+processResources {
+  inputs.property "version", project.version
+  filesMatching("fabric.mod.json") {
+    expand "version": project.version
+  }
+}
+
+tasks.withType(JavaCompile).configureEach {
+  it.options.encoding = "UTF-8"
+  it.options.release = 17
+}
+
+java {
+  withSourcesJar()
+  sourceCompatibility = JavaVersion.VERSION_17
+  targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+  from("LICENSE") {
+    rename { "${it}_${project.archivesBaseName}" }
+  }
+}
+
+if (System.getenv("MODRINTH")) {
+  modrinth {
+    token = System.getenv("MODRINTH")
+    projectId = "hsRVgp6Q"
+    versionNumber = version
+    versionType = "release"
+    uploadFile = remapJar
+    changelog = System.getenv("CHANGELOG")
+    gameVersions = [(String) project.minecraft_version]
+    loaders = ["fabric"]
+    dependencies {
+      required.project "fabric-api"
+    }
+  }
+}
