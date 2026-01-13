@@ -43,21 +43,22 @@ public final class Authority implements Comparable<Authority> {
         this.eventFilter = this.applyToFilter(shapes.asEventFilter());
     }
 
-    public EventFilter applyToFilter(EventFilter filter) {
-        return source -> {
-            if (filter.accepts(source)) {
-                var entity = source.getEntity();
-                if (entity instanceof PlayerEntity player) {
-                    if (player.hasPermissionLevel(4)) return false;
-
-                    if (!this.included.isEmpty())
-                        return (this.included.isIncluded(player));
-                    return !(this.exclusions.isExcluded(player));
-                }
+public EventFilter applyToFilter(EventFilter filter) {
+    return source -> {
+        if (filter.accepts(source)) {
+            var entity = source.getEntity();
+            if (entity instanceof PlayerEntity player) {
+                // Player-specific checks
+                if (player.hasPermissionLevel(4)) return false;
+                if (!this.included.isEmpty())
+                    return (this.included.isIncluded(player));
+                return !(this.exclusions.isExcluded(player));
             }
-            return false;
-        };
-    }
+            return true;  
+        }
+        return false;
+    };
+}
 
     Authority(String key, int level, AuthorityShapes shapes) {
         this(key, level, shapes, new ProtectionRuleMap(), new ProtectionExclusions(), new ProtectionInclusions());
