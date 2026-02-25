@@ -3,6 +3,7 @@ package xyz.nucleoid.leukocyte.rule.enforcer;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.TntBlock;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.Ownable;
 import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.AnimalEntity;
@@ -56,6 +57,28 @@ public final class LeukocyteRuleEnforcer implements ProtectionRuleEnforcer {
         this.forRule(events, rules.test(ProtectionRule.PVP))
                 .applySimple(PlayerAttackEntityEvent.EVENT, rule -> (attacker, hand, attacked, hitResult) -> {
                     return attacked instanceof PlayerEntity ? rule : ActionResult.PASS;
+                });
+
+        // Fix for modded projectiles (e.g. TaCZ guns) bypassing the PVP rule.
+        // PlayerAttackEntityEvent only fires for direct melee hits. Projectile damage
+        // goes through PlayerDamageEvent instead, so we intercept it here.
+        this.forRule(events, rules.test(ProtectionRule.PVP))
+                .applySimple(PlayerDamageEvent.EVENT, rule -> (player, source, amount) -> {
+                    Entity attacker = source.getAttacker();
+                    Entity sourceEntity = source.getSource();
+
+                    // Direct player attacker (melee edge cases)
+                    boolean attackedByPlayer = attacker instanceof PlayerEntity;
+
+                    // Projectile fired by a player (arrows, TaCZ bullets, etc.)
+                    // source.getAttacker() is null for projectiles, so we check the source entity's owner
+                    boolean attackedByPlayerProjectile = attacker == null
+                            && sourceEntity != null
+                            && !(sourceEntity instanceof PlayerEntity)
+                            && sourceEntity instanceof Ownable ownable
+                            && ownable.getOwner() instanceof PlayerEntity;
+
+                    return (attackedByPlayer || attackedByPlayerProjectile) ? rule : ActionResult.PASS;
                 });
 
         this.forRule(events, rules.test(ProtectionRule.SPECTATE_ENTITIES))
