@@ -26,14 +26,7 @@ public final class LeukocyteInitializer implements ModInitializer {
         ServerWorldEvents.UNLOAD.register((server, world) -> Leukocyte.get(server).onWorldUnload(world));
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            // Only register ProtectCommand if we can safely load it
-            // This prevents crashes when WorldEdit classes are missing
-            try {
-                ProtectCommand.register(dispatcher);
-            } catch (NoClassDefFoundError e) {
-                System.err.println("Failed to register ProtectCommand - missing dependency: " + e.getMessage());
-            }
-            
+            ProtectCommand.register(dispatcher);
             ShapeCommand.register(dispatcher);
         });
     }

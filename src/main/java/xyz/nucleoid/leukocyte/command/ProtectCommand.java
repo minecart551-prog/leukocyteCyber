@@ -8,14 +8,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
-import com.sk89q.worldedit.IncompleteRegionException;
-import com.sk89q.worldedit.LocalSession;
-import com.sk89q.worldedit.WorldEdit;
-import com.sk89q.worldedit.fabric.FabricAdapter;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.regions.Region;
-import com.sk89q.worldedit.session.SessionManager;
-import com.sk89q.worldedit.world.World;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.argument.BlockPosArgumentType;
 import net.minecraft.command.argument.DimensionArgumentType;
@@ -168,37 +160,8 @@ public final class ProtectCommand {
                 ))
                 .then(literal("list").executes(ProtectCommand::listAuthorities))
                     .then(literal("test").executes(ProtectCommand::testRulesHere))
-                    .then(literal("wand").executes(ProtectCommand::addWand))
         );
         // @formatter:on
-    }
-
-    private static int addWand(CommandContext<ServerCommandSource> serverCommandSourceCommandContext) {
-        if (FabricLoader.getInstance().isModLoaded("worldedit")) {
-            SessionManager manager = WorldEdit.getInstance().getSessionManager();
-            LocalSession localSession = manager.get(FabricAdapter.adaptCommandSource(serverCommandSourceCommandContext.getSource()));
-            Region region;
-            World selectionWorld = localSession.getSelectionWorld();
-            try {
-                if (selectionWorld == null) throw new IncompleteRegionException();
-                region = localSession.getSelection(selectionWorld);
-                var dimension = serverCommandSourceCommandContext.getSource().getWorld().getRegistryKey();
-
-                BlockVector3 min = region.getMinimumPoint();
-                BlockVector3 max = region.getMaximumPoint();
-
-                // FIXED: Changed from .x(), .y(), .z() to .getX(), .getY(), .getZ()
-                BlockPos startPos = new BlockPos(min.getX(), min.getY(), min.getZ());
-                BlockPos endPos = new BlockPos(max.getX(), max.getY(), max.getZ());
-
-                return addShape(serverCommandSourceCommandContext.getSource(), ProtectionShape.box(dimension, startPos, endPos));
-            } catch (IncompleteRegionException ex) {
-                serverCommandSourceCommandContext.getSource().sendMessage(Text.of("Invalid region/Incomplete region."));
-            } catch (CommandSyntaxException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return 0;
     }
 
     private static int addAuthority(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
