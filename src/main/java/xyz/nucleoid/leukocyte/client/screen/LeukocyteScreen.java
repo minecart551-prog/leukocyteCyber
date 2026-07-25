@@ -32,6 +32,7 @@ public final class LeukocyteScreen extends Screen {
                     ClientPacketHandler.addAuthority(name);
                     refreshAfterAction();
                 }
+                client.setScreen(null);
             }));
         }).dimensions(width / 2 - 100, height - 52, 98, 20).build());
 

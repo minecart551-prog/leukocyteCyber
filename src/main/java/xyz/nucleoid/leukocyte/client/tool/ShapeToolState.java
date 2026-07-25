@@ -156,12 +156,20 @@ public final class ShapeToolState {
 
     public void reset() {
         mode = Mode.IDLE;
+        selectedShapeIndex = -1;
         firstCorner = null;
         secondCorner = null;
     }
 
     private static String savedAuthority = null;
     private static String savedShapeName = null;
+    private static String pendingAutoSelectAuth = null;
+    private static String pendingAutoSelectShapeName = null;
+
+    public static void setPendingAutoSelect(String authority, String shapeName) {
+        pendingAutoSelectAuth = authority;
+        pendingAutoSelectShapeName = shapeName;
+    }
 
     public void fullReset() {
         if (selectedShapeIndex >= 0 && selectedShapeIndex < shapeEntries.size()) {
@@ -180,18 +188,40 @@ public final class ShapeToolState {
     }
 
     public void tryRestoreSelection() {
-        if (savedAuthority == null || savedShapeName == null) return;
-        for (int i = 0; i < shapeEntries.size(); i++) {
-            var entry = shapeEntries.get(i);
-            if (entry.authority().equals(savedAuthority) && entry.name().equals(savedShapeName)) {
-                selectedShapeIndex = i;
-                int authIdx = authorityKeys.indexOf(savedAuthority);
-                if (authIdx >= 0) selectedAuthorityIndex = authIdx;
-                setMode(Mode.SELECTED);
-                ShapeRenderer.getInstance().markNeedsRebuild();
-                break;
+        if (savedAuthority != null && savedShapeName != null) {
+            for (int i = 0; i < shapeEntries.size(); i++) {
+                var entry = shapeEntries.get(i);
+                if (entry.authority().equals(savedAuthority) && entry.name().equals(savedShapeName)) {
+                    selectedShapeIndex = i;
+                    int authIdx = authorityKeys.indexOf(savedAuthority);
+                    if (authIdx >= 0) selectedAuthorityIndex = authIdx;
+                    setMode(Mode.SELECTED);
+                    ShapeRenderer.getInstance().markNeedsRebuild();
+                    savedAuthority = null;
+                    savedShapeName = null;
+                    pendingAutoSelectAuth = null;
+                    pendingAutoSelectShapeName = null;
+                    return;
+                }
             }
         }
+
+        if (pendingAutoSelectAuth != null && pendingAutoSelectShapeName != null) {
+            for (int i = 0; i < shapeEntries.size(); i++) {
+                var entry = shapeEntries.get(i);
+                if (entry.authority().equals(pendingAutoSelectAuth) && entry.name().equals(pendingAutoSelectShapeName)) {
+                    selectedShapeIndex = i;
+                    int authIdx = authorityKeys.indexOf(pendingAutoSelectAuth);
+                    if (authIdx >= 0) selectedAuthorityIndex = authIdx;
+                    setMode(Mode.SELECTED);
+                    ShapeRenderer.getInstance().markNeedsRebuild();
+                    break;
+                }
+            }
+            pendingAutoSelectAuth = null;
+            pendingAutoSelectShapeName = null;
+        }
+
         savedAuthority = null;
         savedShapeName = null;
     }

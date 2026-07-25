@@ -62,6 +62,7 @@ public final class AuthorityDetailScreen extends Screen {
                     refreshDetail();
                 } catch (NumberFormatException e) {
                 }
+                client.setScreen(null);
             }));
         }).dimensions(col1, startY + (btnHeight + gap) * 2, btnWidth, btnHeight).build());
 

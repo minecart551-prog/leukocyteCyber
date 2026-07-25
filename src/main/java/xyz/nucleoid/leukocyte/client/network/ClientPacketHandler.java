@@ -101,6 +101,11 @@ public final class ClientPacketHandler {
             resultCallback.accept((success ? "§a" : "§c") + message);
         }
         if (success && xyz.nucleoid.leukocyte.client.tool.ShapeToolState.getInstance().isToolHeld()) {
+            if (data.contains("createdAuthority") && data.contains("createdShapeName")) {
+                String auth = data.getString("createdAuthority");
+                String name = data.getString("createdShapeName");
+                xyz.nucleoid.leukocyte.client.tool.ShapeToolState.setPendingAutoSelect(auth, name);
+            }
             requestShapeToolData();
         }
     }
@@ -179,15 +184,16 @@ public final class ClientPacketHandler {
         }
 
         ShapeToolState state = ShapeToolState.getInstance();
-        state.setShapeEntries(new ArrayList<>(merged.values()));
-        state.tryRestoreSelection();
 
         var authList = data.getList("authorities", NbtElement.STRING_TYPE);
         var keys = new ArrayList<String>();
         for (int i = 0; i < authList.size(); i++) {
             keys.add(authList.getString(i));
         }
-        ShapeToolState.getInstance().setAuthorityKeys(keys);
+        state.setAuthorityKeys(keys);
+
+        state.setShapeEntries(new ArrayList<>(merged.values()));
+        state.tryRestoreSelection();
 
         xyz.nucleoid.leukocyte.client.render.ShapeRenderer.getInstance().markNeedsRebuild();
     }

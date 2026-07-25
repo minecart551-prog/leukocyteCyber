@@ -55,11 +55,14 @@ public final class ToolMenuScreen extends Screen {
 
         if (isEditing && shape != null) {
             addDrawableChild(ButtonWidget.builder(Text.literal("Rename"), button -> {
+                String oldName = shape.name();
+                String auth = shape.authority();
                 client.setScreen(new xyz.nucleoid.leukocyte.client.screen.TextInputScreen(
-                    "Rename Shape", "New name for '" + shape.name() + "':", newName -> {
+                    "Rename Shape", "New name for '" + oldName + "':", newName -> {
                         if (!newName.trim().isEmpty()) {
-                            ClientPacketHandler.renameShape(shape.authority(), shape.name(), newName.trim());
-                            client.setScreen(null);
+                            ClientPacketHandler.renameShape(auth, oldName, newName.trim());
+                            xyz.nucleoid.leukocyte.client.tool.ShapeToolState.setPendingAutoSelect(auth, newName.trim());
+                            client.setScreen(new ToolMenuScreen());
                         }
                     }
                 ));
@@ -72,17 +75,11 @@ public final class ToolMenuScreen extends Screen {
 
             btnY += BTN_H + BTN_GAP;
 
-            addDrawableChild(ButtonWidget.builder(Text.literal("Delete Shape"), button -> {
-                ClientPacketHandler.removeShape(shape.authority(), shape.name());
-                state.reset();
-                client.setScreen(null);
-            }).dimensions(col1, btnY, btnW, BTN_H).build());
-
             addDrawableChild(ButtonWidget.builder(Text.literal("Deselect"), button -> {
                 state.reset();
                 ShapeRenderer.getInstance().markNeedsRebuild();
                 client.setScreen(null);
-            }).dimensions(col2, btnY, btnW, BTN_H).build());
+            }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
 
             btnY += BTN_H + BTN_GAP;
         } else {
@@ -164,6 +161,7 @@ public final class ToolMenuScreen extends Screen {
 
         int listY = HEADER_H + 4;
         int shapeVisible = Math.max(0, Math.min(filteredShapes.size(), (listBottom - listY) / shapeEntryH));
+        int delBtnW = 14;
 
         for (int i = 0; i < shapeVisible; i++) {
             int idx = shapeScrollOffset + i;
@@ -173,15 +171,24 @@ public final class ToolMenuScreen extends Screen {
 
             boolean hovering = mouseX >= rightX && mouseX <= rightX + rightW
                 && mouseY >= ey && mouseY < ey + shapeEntryH - 1;
+            boolean hoveringDel = mouseX >= rightX + rightW - delBtnW && mouseX <= rightX + rightW
+                && mouseY >= ey && mouseY < ey + shapeEntryH - 1;
             boolean isSelected = entry == state.getSelectedShape();
 
             int bg = isSelected ? 0xFF226644 : (hovering ? 0xFF335577 : 0xFF222222);
             context.fill(rightX, ey, rightX + rightW, ey + shapeEntryH - 1, bg);
 
             int textColor = isSelected ? 0xFF55FF55 : (hovering ? 0xFFFFFF55 : 0xFFFFFF);
-            context.drawTextWithShadow(textRenderer, entry.name(), rightX + 4, ey + 3, textColor);
+            int textMaxW = rightW - delBtnW - 6;
+            String name = textRenderer.trimToWidth(entry.name(), textMaxW);
+            context.drawTextWithShadow(textRenderer, name, rightX + 4, ey + 3, textColor);
             context.drawTextWithShadow(textRenderer, entry.type(),
                 rightX + 4, ey + 12, 0x888888);
+
+            int delBg = hoveringDel ? 0xFFCC3333 : 0xFF552222;
+            context.fill(rightX + rightW - delBtnW, ey, rightX + rightW, ey + shapeEntryH - 1, delBg);
+            context.drawCenteredTextWithShadow(textRenderer, "-",
+                rightX + rightW - delBtnW / 2, ey + 4, hoveringDel ? 0xFFFF5555 : 0xFFCC4444);
         }
 
         if (filteredShapes.isEmpty()) {
@@ -244,6 +251,7 @@ public final class ToolMenuScreen extends Screen {
         int rightW = (width / 2) - 6;
         int listY = HEADER_H + 4;
         int shapeVisible = Math.max(0, Math.min(filteredShapes.size(), (listBottom - listY) / SHAPE_ENTRY_H));
+        int delBtnW = 14;
 
         if (mouseX >= rightX && mouseX <= rightX + rightW) {
             for (int i = 0; i < shapeVisible; i++) {
@@ -252,6 +260,14 @@ public final class ToolMenuScreen extends Screen {
                 int ey = listY + i * SHAPE_ENTRY_H;
                 if (mouseY >= ey && mouseY < ey + SHAPE_ENTRY_H - 1) {
                     ShapeToolState.ShapeEntry entry = filteredShapes.get(idx);
+
+                    if (mouseX >= rightX + rightW - delBtnW) {
+                        ClientPacketHandler.removeShape(entry.authority(), entry.name());
+                        state.reset();
+                        client.setScreen(new ToolMenuScreen());
+                        return true;
+                    }
+
                     state.setSelectedShapeIndex(state.getShapeEntries().indexOf(entry));
                     state.setMode(ShapeToolState.Mode.SELECTED);
                     state.clearCorners();

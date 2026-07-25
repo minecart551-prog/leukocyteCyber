@@ -143,7 +143,8 @@ public final class ShapeToolHandler {
                 if (pos != null && state.getFirstCorner() != null) {
                     state.setSecondCorner(pos);
                     createShapeFromCorners(mc, state);
-                    state.reset();
+                    state.setMode(ShapeToolState.Mode.IDLE);
+                    state.clearCorners();
                 }
             }
             case ADD_CORNER_2 -> {

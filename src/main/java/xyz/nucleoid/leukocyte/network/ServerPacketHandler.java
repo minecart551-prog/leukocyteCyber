@@ -474,7 +474,7 @@ public final class ServerPacketHandler {
         var shape = ProtectionShape.box(dimension, min, max);
         var newAuthority = authority.addShape(shapeName, shape);
         leukocyte.replaceAuthority(authority, newAuthority);
-        sendResult(player, true, "Created shape '" + shapeName + "' in '" + key + "'.");
+        sendResultWithShape(player, true, "Created shape '" + shapeName + "' in '" + key + "'.", key, shapeName);
     }
 
     private static void handleRenameShape(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data) {
@@ -779,6 +779,18 @@ public final class ServerPacketHandler {
         var root = new NbtCompound();
         root.putBoolean("success", success);
         root.putString("message", message);
+        buf.writeNbt(root);
+        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+    }
+
+    private static void sendResultWithShape(ServerPlayerEntity player, boolean success, String message, String authority, String shapeName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.RESPONSE_RESULT);
+        var root = new NbtCompound();
+        root.putBoolean("success", success);
+        root.putString("message", message);
+        root.putString("createdAuthority", authority);
+        root.putString("createdShapeName", shapeName);
         buf.writeNbt(root);
         ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
     }

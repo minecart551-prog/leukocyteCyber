@@ -26,7 +26,6 @@ public final class TextInputScreen extends Screen {
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Confirm"), button -> {
             onComplete.accept(textField.getText());
-            client.setScreen(null);
         }).dimensions(width / 2 - 100, height / 2 + 20, 98, 20).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), button -> {
