@@ -77,4 +77,6 @@ public final class UnionShape implements ProtectionShape {
         scopes[scopes.length - 1] = other;
         return new UnionShape(scopes);
     }
+
+    public ProtectionShape[] getScopes() { return scopes; }
 }

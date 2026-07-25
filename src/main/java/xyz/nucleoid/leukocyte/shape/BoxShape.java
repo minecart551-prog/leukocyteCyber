@@ -65,4 +65,8 @@ public final class BoxShape implements ProtectionShape {
     private MutableText displayPos(BlockPos pos) {
         return Text.literal("(" + pos.getX() + "; " + pos.getY() + "; " + pos.getZ() + ")");
     }
+
+    public RegistryKey<World> getDimension() { return dimension; }
+    public BlockPos getMin() { return min; }
+    public BlockPos getMax() { return max; }
 }

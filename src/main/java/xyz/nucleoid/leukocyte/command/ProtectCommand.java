@@ -27,6 +27,10 @@ import xyz.nucleoid.leukocyte.roles.PermissionAccessor;
 import xyz.nucleoid.leukocyte.rule.ProtectionRule;
 import xyz.nucleoid.leukocyte.rule.RuleResult;
 import xyz.nucleoid.leukocyte.shape.ProtectionShape;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.nbt.NbtCompound;
+import xyz.nucleoid.leukocyte.network.LeukocyteNetworking;
 import xyz.nucleoid.stimuli.EventSource;
 
 import java.util.ArrayList;
@@ -160,6 +164,8 @@ public final class ProtectCommand {
                 ))
                 .then(literal("list").executes(ProtectCommand::listAuthorities))
                     .then(literal("test").executes(ProtectCommand::testRulesHere))
+                    .then(literal("gui").executes(ProtectCommand::openGui))
+                    .then(literal("tool").executes(ProtectCommand::giveShapeTool))
         );
         // @formatter:on
     }
@@ -522,6 +528,29 @@ public final class ProtectCommand {
             return text;
         }, false);
 
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int openGui(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        var player = context.getSource().getPlayer();
+
+        var buf = PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.RESPONSE_OPEN_SCREEN);
+        buf.writeNbt(new NbtCompound());
+        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+
+        context.getSource().sendFeedback(() -> Text.literal("Opening Leukocyte GUI..."), false);
+
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int giveShapeTool(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        var player = context.getSource().getPlayer();
+        var stack = new net.minecraft.item.ItemStack(xyz.nucleoid.leukocyte.LeukocyteInitializer.SHAPE_TOOL);
+        if (!player.getInventory().insertStack(stack)) {
+            player.dropItem(stack, false);
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Given Shape Tool. Hold it and press middle click for the menu."), false);
         return Command.SINGLE_SUCCESS;
     }
 }

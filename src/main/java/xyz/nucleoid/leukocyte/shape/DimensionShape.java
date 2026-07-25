@@ -47,4 +47,6 @@ public final class DimensionShape implements ProtectionShape {
     public MutableText displayShort() {
         return this.display();
     }
+
+    public RegistryKey<World> getDimension() { return dimension; }
 }
