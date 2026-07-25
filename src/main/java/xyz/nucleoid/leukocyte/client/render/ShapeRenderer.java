@@ -10,7 +10,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import xyz.nucleoid.leukocyte.client.tool.ShapeToolState;
 import xyz.nucleoid.leukocyte.client.util.FaceMerger;
-import xyz.nucleoid.leukocyte.client.util.VoxelGrid;
 
 import java.awt.*;
 import java.util.HashMap;
@@ -107,11 +106,6 @@ public class ShapeRenderer {
 
             if (!isVisibleInFrustum(minX, minY, minZ, maxX, maxY, maxZ)) continue;
 
-            VoxelGrid grid = new VoxelGrid();
-            for (int[] box : entry.subBoxes()) {
-                grid.fillBox(box[0], box[1], box[2], box[3], box[4], box[5]);
-            }
-
             boolean isSelected = entry == state.getSelectedShape();
             int alpha = isSelected ? SELECTED_ALPHA : FILL_ALPHA;
             Color color;
@@ -125,7 +119,7 @@ public class ShapeRenderer {
                 color = new Color(packed, true);
             }
 
-            for (FaceMerger.Face face : FaceMerger.extractAndMergeBoundaryFaces(grid)) {
+            for (FaceMerger.Face face : FaceMerger.extractAndMergeBoundaryFacesFromBoxes(entry.subBoxes())) {
                 renderFaceAsFilledQuad(buildCtx, face, color, alpha);
             }
 

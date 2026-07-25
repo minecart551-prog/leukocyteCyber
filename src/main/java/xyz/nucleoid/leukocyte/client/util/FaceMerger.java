@@ -50,6 +50,133 @@ public class FaceMerger {
         return mergedFaces;
     }
 
+    public static List<Face> extractAndMergeBoundaryFacesFromBoxes(List<int[]> subBoxes) {
+        if (subBoxes.isEmpty()) return List.of();
+        if (subBoxes.size() == 1) {
+            int[] b = subBoxes.get(0);
+            List<Face> faces = new ArrayList<>(6);
+            faces.add(new Face(0, b[0],     b[1], b[2], b[4]+1, b[5]+1));
+            faces.add(new Face(0, b[3] + 1, b[1], b[2], b[4]+1, b[5]+1));
+            faces.add(new Face(1, b[1],     b[0], b[2], b[3]+1, b[5]+1));
+            faces.add(new Face(1, b[4] + 1, b[0], b[2], b[3]+1, b[5]+1));
+            faces.add(new Face(2, b[2],     b[0], b[1], b[3]+1, b[4]+1));
+            faces.add(new Face(2, b[5] + 1, b[0], b[1], b[3]+1, b[4]+1));
+            return faces;
+        }
+
+        List<Face> allFaces = new ArrayList<>();
+        for (int i = 0; i < subBoxes.size(); i++) {
+            int[] b = subBoxes.get(i);
+            int minX = b[0], minY = b[1], minZ = b[2];
+            int maxX = b[3], maxY = b[4], maxZ = b[5];
+
+            addSplitFaces(allFaces, subBoxes, i, 0, minX,     false, minY, minZ, maxY+1, maxZ+1);
+            addSplitFaces(allFaces, subBoxes, i, 0, maxX + 1, true,  minY, minZ, maxY+1, maxZ+1);
+            addSplitFaces(allFaces, subBoxes, i, 1, minY,     false, minX, minZ, maxX+1, maxZ+1);
+            addSplitFaces(allFaces, subBoxes, i, 1, maxY + 1, true,  minX, minZ, maxX+1, maxZ+1);
+            addSplitFaces(allFaces, subBoxes, i, 2, minZ,     false, minX, minY, maxX+1, maxY+1);
+            addSplitFaces(allFaces, subBoxes, i, 2, maxZ + 1, true,  minX, minY, maxX+1, maxY+1);
+        }
+        return mergeOverlappingFaces(allFaces);
+    }
+
+    private static void addSplitFaces(List<Face> out, List<int[]> subBoxes, int skipIdx,
+                                       int plane, int planeValue, boolean isMaxSide,
+                                       int faceU1, int faceV1, int faceU2, int faceV2) {
+        List<int[]> rects = new ArrayList<>();
+        rects.add(new int[]{faceU1, faceV1, faceU2, faceV2});
+
+        for (int i = 0; i < subBoxes.size(); i++) {
+            if (i == skipIdx) continue;
+            int[] c = subBoxes.get(i);
+
+            int[] cProj = getCoveringProjection(c, plane, planeValue, isMaxSide);
+            if (cProj == null) continue;
+
+            List<int[]> next = new ArrayList<>();
+            for (int[] r : rects) {
+                next.addAll(subtractRect(r, cProj));
+            }
+            rects = next;
+            if (rects.isEmpty()) break;
+        }
+
+        for (int[] r : rects) {
+            if (r[0] < r[2] && r[1] < r[3]) {
+                out.add(new Face(plane, planeValue, r[0], r[1], r[2], r[3]));
+            }
+        }
+    }
+
+    private static int[] getCoveringProjection(int[] c, int plane, int planeValue, boolean isMaxSide) {
+        int cMinX = c[0], cMinY = c[1], cMinZ = c[2];
+        int cMaxX = c[3], cMaxY = c[4], cMaxZ = c[5];
+
+        int adj = isMaxSide ? planeValue : planeValue - 1;
+
+        switch (plane) {
+            case 0: {
+                if (cMinX > adj || cMaxX < adj) return null;
+                return new int[]{cMinY, cMinZ, cMaxY + 1, cMaxZ + 1};
+            }
+            case 1: {
+                if (cMinY > adj || cMaxY < adj) return null;
+                return new int[]{cMinX, cMinZ, cMaxX + 1, cMaxZ + 1};
+            }
+            case 2: {
+                if (cMinZ > adj || cMaxZ < adj) return null;
+                return new int[]{cMinX, cMinY, cMaxX + 1, cMaxY + 1};
+            }
+        }
+        return null;
+    }
+
+    private static List<int[]> subtractRect(int[] R, int[] C) {
+        if (R[0] >= C[2] || C[0] >= R[2] || R[1] >= C[3] || C[1] >= R[3]) {
+            return List.of(R);
+        }
+
+        List<int[]> result = new ArrayList<>(4);
+
+        if (R[0] < C[0]) {
+            result.add(new int[]{R[0], R[1], C[0], R[3]});
+        }
+        if (C[2] < R[2]) {
+            result.add(new int[]{C[2], R[1], R[2], R[3]});
+        }
+        int uStart = Math.max(R[0], C[0]);
+        int uEnd = Math.min(R[2], C[2]);
+        if (R[1] < C[1]) {
+            result.add(new int[]{uStart, R[1], uEnd, C[1]});
+        }
+        if (C[3] < R[3]) {
+            result.add(new int[]{uStart, C[3], uEnd, R[3]});
+        }
+        return result;
+    }
+
+    private static List<Face> mergeOverlappingFaces(List<Face> faces) {
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int i = 0; i < faces.size() && !changed; i++) {
+                Face a = faces.get(i);
+                for (int j = i + 1; j < faces.size() && !changed; j++) {
+                    Face b = faces.get(j);
+                    if (a.plane != b.plane || a.planeValue != b.planeValue) continue;
+                    if (a.u1 < b.u2 && b.u1 < a.u2 && a.v1 < b.v2 && b.v1 < a.v2) {
+                        faces.set(i, new Face(a.plane, a.planeValue,
+                            Math.min(a.u1, b.u1), Math.min(a.v1, b.v1),
+                            Math.max(a.u2, b.u2), Math.max(a.v2, b.v2)));
+                        faces.remove(j);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return mergeFacesOnPlanes(faces);
+    }
+
     private static Set<Face> extractBoundaryFaces(VoxelGrid grid) {
         Set<Face> faces = new HashSet<>();
         for (int x = grid.getMinX(); x <= grid.getMaxX(); x++) {
