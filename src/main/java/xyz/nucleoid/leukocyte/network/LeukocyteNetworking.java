@@ -36,6 +36,23 @@ public final class LeukocyteNetworking {
     public static final byte RESPONSE_OPEN_SCREEN = 4;
     public static final byte RESPONSE_SHAPE_TOOL_DATA = 5;
 
+    public static final Identifier BUILD_C2S_CHANNEL = new Identifier("leukocyte", "build_c2s");
+    public static final Identifier BUILD_S2C_CHANNEL = new Identifier("leukocyte", "build_s2c");
+
+    public static final byte BUILD_ACTION_REQUEST_DATA = 0;
+    public static final byte BUILD_ACTION_CREATE = 1;
+    public static final byte BUILD_ACTION_RENAME = 2;
+    public static final byte BUILD_ACTION_DELETE = 3;
+    public static final byte BUILD_ACTION_ADD_BLOCKED_ITEM = 4;
+    public static final byte BUILD_ACTION_REMOVE_BLOCKED_ITEM = 5;
+    public static final byte BUILD_ACTION_TELEPORT_TO_AREA = 6;
+    public static final byte BUILD_ACTION_ADD_BOX = 7;
+    public static final byte BUILD_ACTION_SUBTRACT_BOX = 8;
+
+    public static final byte BUILD_RESPONSE_DATA = 0;
+    public static final byte BUILD_RESPONSE_RESULT = 1;
+    public static final byte BUILD_RESPONSE_BUILD_MODE_STATUS = 2;
+
     public static final byte EXCLUSION_TYPE_PLAYER = 0;
     public static final byte EXCLUSION_TYPE_ROLE = 1;
     public static final byte EXCLUSION_TYPE_PERMISSION = 2;

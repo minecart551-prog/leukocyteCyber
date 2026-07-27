@@ -8,48 +8,37 @@ import net.minecraft.client.render.Frustum;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import xyz.nucleoid.leukocyte.client.tool.BuildAreaToolState;
 import xyz.nucleoid.leukocyte.client.tool.ShapeToolState;
 import xyz.nucleoid.leukocyte.client.util.FaceMerger;
+import xyz.nucleoid.leukocyte.item.LeukocyteBuildAreaTool;
+import xyz.nucleoid.leukocyte.item.LeukocyteShapeTool;
 
 import java.awt.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 @Environment(EnvType.CLIENT)
 public class ShapeRenderer {
     private static final ShapeRenderer INSTANCE = new ShapeRenderer();
 
-    private final ShapeRenderingContext[] ctxPool = new ShapeRenderingContext[] {
-        new ShapeRenderingContext(),
-        new ShapeRenderingContext()
-    };
-    private int activeContextIndex = 0;
-    private boolean contextReady = false;
+    private final ShapeRenderingContext ctx = new ShapeRenderingContext();
 
     private static Frustum currentFrustum = null;
 
-    private static final Executor BACKGROUND_EXECUTOR = Executors.newSingleThreadExecutor(
-        r -> { Thread t = new Thread(r, "Leukocyte-Shape-Build"); t.setDaemon(true); return t; }
-    );
-
-    private volatile boolean needsRebuild = true;
-    private volatile CompletableFuture<Void> buildingFuture = null;
     private static final int MAX_RENDER_DISTANCE = 64;
 
     private static final Color FILL_SELECTED = new Color(255, 255, 0);
-    private static final int FILL_ALPHA = 45;
     private static final int SELECTED_ALPHA = 65;
+    private static final int FILL_ALPHA = 45;
     private static final int FILL_ALPHA_AUTHORITY = 35;
 
     private ShapeRenderer() {}
 
     public static ShapeRenderer getInstance() { return INSTANCE; }
     public void setFrustum(Frustum frustum) { currentFrustum = frustum; }
-    public void markNeedsRebuild() { this.needsRebuild = true; }
+    public void markNeedsRebuild() {}
 
     private boolean isVisibleInFrustum(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
         if (currentFrustum == null) return true;
@@ -64,19 +53,82 @@ public class ShapeRenderer {
         return currentFrustum.isVisible(new Box(minX, minY, minZ, maxX, maxY, maxZ));
     }
 
-    private void buildAsync(ShapeRenderingContext buildCtx) {
+    public void render(double camX, double camY, double camZ, MatrixStack matrices) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
-
-        ShapeToolState state = ShapeToolState.getInstance();
-        double camX = mc.gameRenderer.getCamera().getPos().x;
-        double camY = mc.gameRenderer.getCamera().getPos().y;
-        double camZ = mc.gameRenderer.getCamera().getPos().z;
-
-        buildCtx.reset(camX, camY, camZ);
-        buildCtx.beginBatch();
+        boolean holdingShapeTool = mc.player.getMainHandStack().getItem() instanceof LeukocyteShapeTool;
+        boolean holdingBuildTool = mc.player.getMainHandStack().getItem() instanceof LeukocyteBuildAreaTool;
+        if (!holdingShapeTool && !holdingBuildTool) return;
 
         var currentDim = mc.world.getRegistryKey();
+
+        ctx.reset(camX, camY, camZ);
+        ctx.beginBatch();
+
+        if (holdingBuildTool) {
+            renderBuildTool(ctx, mc, currentDim);
+        } else {
+            renderShapeTool(ctx, mc, currentDim);
+        }
+
+        ctx.endBatch();
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
+        matrices.push();
+        matrices.translate(ctx.getBaseX() - camX, ctx.getBaseY() - camY, ctx.getBaseZ() - camZ);
+        ctx.doDrawing(matrices);
+        matrices.pop();
+        RenderSystem.disableBlend();
+        RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
+    }
+
+    private void renderBuildTool(ShapeRenderingContext ctx, MinecraftClient mc, net.minecraft.registry.RegistryKey<net.minecraft.world.World> currentDim) {
+        BuildAreaToolState state = BuildAreaToolState.getInstance();
+
+        var selected = state.getSelectedArea();
+        if (selected != null && selected.dimension() != null && selected.dimension().equals(currentDim)) {
+            BlockPos selMin = selected.min();
+            BlockPos selMax = selected.max();
+
+            if (isVisibleInFrustum(selMin.getX(), selMin.getY(), selMin.getZ(), selMax.getX(), selMax.getY(), selMax.getZ())) {
+                for (FaceMerger.Face face : FaceMerger.extractAndMergeBoundaryFacesFromBoxes(selected.subBoxes())) {
+                    renderFaceAsFilledQuad(ctx, face, new Color(0x55FF55), SELECTED_ALPHA);
+                }
+                renderWireframeBox(ctx, selMin.getX(), selMin.getY(), selMin.getZ(),
+                    selMax.getX() + 1, selMax.getY() + 1, selMax.getZ() + 1,
+                    new Color(255, 255, 255), 200);
+            }
+        }
+
+        if (state.getFirstCorner() != null) {
+            BlockPos a = state.getFirstCorner();
+            BlockPos preview = state.getPreviewPos();
+
+            if (preview != null) {
+                int bMinX = Math.min(a.getX(), preview.getX());
+                int bMinY = Math.min(a.getY(), preview.getY());
+                int bMinZ = Math.min(a.getZ(), preview.getZ());
+                int bMaxX = Math.max(a.getX(), preview.getX()) + 1;
+                int bMaxY = Math.max(a.getY(), preview.getY()) + 1;
+                int bMaxZ = Math.max(a.getZ(), preview.getZ()) + 1;
+                renderBoxAsFilledQuads(ctx, bMinX, bMinY, bMinZ, bMaxX, bMaxY, bMaxZ, FILL_SELECTED, SELECTED_ALPHA);
+                renderWireframeBox(ctx, bMinX, bMinY, bMinZ, bMaxX, bMaxY, bMaxZ, FILL_SELECTED, 200);
+            } else {
+                renderWireframeBox(ctx, a.getX(), a.getY(), a.getZ(),
+                    a.getX() + 1, a.getY() + 1, a.getZ() + 1, FILL_SELECTED, 200);
+                renderBoxAsFilledQuads(ctx, a.getX(), a.getY(), a.getZ(),
+                    a.getX() + 1, a.getY() + 1, a.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
+            }
+        }
+    }
+
+    private void renderShapeTool(ShapeRenderingContext ctx, MinecraftClient mc, net.minecraft.registry.RegistryKey<net.minecraft.world.World> currentDim) {
+        ShapeToolState state = ShapeToolState.getInstance();
+
         List<ShapeToolState.ShapeEntry> visibleShapes = new java.util.ArrayList<>();
 
         if (state.getSelectedShape() != null) {
@@ -120,34 +172,34 @@ public class ShapeRenderer {
             }
 
             for (FaceMerger.Face face : FaceMerger.extractAndMergeBoundaryFacesFromBoxes(entry.subBoxes())) {
-                renderFaceAsFilledQuad(buildCtx, face, color, alpha);
+                renderFaceAsFilledQuad(ctx, face, color, alpha);
             }
 
             if (isSelected) {
-                renderWireframeBox(buildCtx, minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1,
+                renderWireframeBox(ctx, minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1,
                     new Color(255, 255, 255), 200);
             }
         }
 
         if (state.getFirstCorner() != null) {
-            BlockPos c = state.getFirstCorner();
-            renderWireframeBox(buildCtx, c.getX(), c.getY(), c.getZ(),
-                c.getX() + 1, c.getY() + 1, c.getZ() + 1, FILL_SELECTED, 200);
-            renderBoxAsFilledQuads(buildCtx, c.getX(), c.getY(), c.getZ(),
-                c.getX() + 1, c.getY() + 1, c.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
-        }
-
-        if (state.getFirstCorner() != null && state.getSecondCorner() != null) {
             BlockPos a = state.getFirstCorner();
-            BlockPos b = state.getSecondCorner();
-            int minX = Math.min(a.getX(), b.getX());
-            int minY = Math.min(a.getY(), b.getY());
-            int minZ = Math.min(a.getZ(), b.getZ());
-            int maxX = Math.max(a.getX(), b.getX()) + 1;
-            int maxY = Math.max(a.getY(), b.getY()) + 1;
-            int maxZ = Math.max(a.getZ(), b.getZ()) + 1;
-            renderBoxAsFilledQuads(buildCtx, minX, minY, minZ, maxX, maxY, maxZ, FILL_SELECTED, SELECTED_ALPHA);
-            renderWireframeBox(buildCtx, minX, minY, minZ, maxX, maxY, maxZ, FILL_SELECTED, 200);
+            BlockPos preview = state.getPreviewPos();
+
+            if (preview != null) {
+                int bMinX = Math.min(a.getX(), preview.getX());
+                int bMinY = Math.min(a.getY(), preview.getY());
+                int bMinZ = Math.min(a.getZ(), preview.getZ());
+                int bMaxX = Math.max(a.getX(), preview.getX()) + 1;
+                int bMaxY = Math.max(a.getY(), preview.getY()) + 1;
+                int bMaxZ = Math.max(a.getZ(), preview.getZ()) + 1;
+                renderBoxAsFilledQuads(ctx, bMinX, bMinY, bMinZ, bMaxX, bMaxY, bMaxZ, FILL_SELECTED, SELECTED_ALPHA);
+                renderWireframeBox(ctx, bMinX, bMinY, bMinZ, bMaxX, bMaxY, bMaxZ, FILL_SELECTED, 200);
+            } else {
+                renderWireframeBox(ctx, a.getX(), a.getY(), a.getZ(),
+                    a.getX() + 1, a.getY() + 1, a.getZ() + 1, FILL_SELECTED, 200);
+                renderBoxAsFilledQuads(ctx, a.getX(), a.getY(), a.getZ(),
+                    a.getX() + 1, a.getY() + 1, a.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
+            }
         }
     }
 
@@ -217,43 +269,7 @@ public class ShapeRenderer {
         ctx.drawLine(minX, minY, maxZ, minX, maxY, maxZ, color, alpha);
     }
 
-    public void render(double camX, double camY, double camZ, MatrixStack matrices) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.world == null) return;
-        if (!ShapeToolState.getInstance().isToolHeld()) return;
-
-        if (needsRebuild && (buildingFuture == null || buildingFuture.isDone())) {
-            needsRebuild = false;
-            int buildIndex = (activeContextIndex + 1) % 2;
-            ShapeRenderingContext buildCtx = ctxPool[buildIndex];
-            buildingFuture = CompletableFuture.runAsync(() -> buildAsync(buildCtx), BACKGROUND_EXECUTOR)
-                .thenRunAsync(() -> {
-                    buildCtx.endBatch();
-                    activeContextIndex = buildIndex;
-                    contextReady = true;
-                }, runnable -> {
-                    if (RenderSystem.isOnRenderThread()) runnable.run();
-                    else RenderSystem.recordRenderCall(runnable::run);
-                });
-        }
-
-        ShapeRenderingContext activeCtx = ctxPool[activeContextIndex];
-        if (!contextReady) return;
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableCull();
-        matrices.push();
-        matrices.translate(activeCtx.getBaseX() - camX, activeCtx.getBaseY() - camY, activeCtx.getBaseZ() - camZ);
-        activeCtx.doDrawing(matrices);
-        matrices.pop();
-        RenderSystem.disableBlend();
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
-    }
-
     public void cleanup() {
-        for (ShapeRenderingContext c : ctxPool) c.cleanup();
+        ctx.cleanup();
     }
 }

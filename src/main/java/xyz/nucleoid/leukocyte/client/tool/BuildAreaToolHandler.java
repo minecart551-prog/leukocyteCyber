@@ -11,12 +11,12 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
-import xyz.nucleoid.leukocyte.client.network.ClientPacketHandler;
+import xyz.nucleoid.leukocyte.client.network.ClientBuildPacketHandler;
 import xyz.nucleoid.leukocyte.client.render.ShapeRenderer;
-import xyz.nucleoid.leukocyte.item.LeukocyteShapeTool;
+import xyz.nucleoid.leukocyte.item.LeukocyteBuildAreaTool;
 
 @Environment(EnvType.CLIENT)
-public final class ShapeToolHandler {
+public final class BuildAreaToolHandler {
     private static long lastLeftClickTime = 0;
     private static long lastRightClickTime = 0;
     private static final long CLICK_COOLDOWN = 150;
@@ -26,26 +26,26 @@ public final class ShapeToolHandler {
     private static boolean toolEquipped = false;
 
     public static void register() {
-        ClientTickEvents.START_CLIENT_TICK.register(ShapeToolHandler::onClientTick);
-        WorldRenderEvents.LAST.register(ShapeToolHandler::onWorldRenderLast);
+        ClientTickEvents.START_CLIENT_TICK.register(BuildAreaToolHandler::onClientTick);
+        WorldRenderEvents.LAST.register(BuildAreaToolHandler::onWorldRenderLast);
     }
 
     private static boolean isHoldingTool(PlayerEntity player) {
         if (player == null) return false;
-        return player.getMainHandStack().getItem() instanceof LeukocyteShapeTool;
+        return player.getMainHandStack().getItem() instanceof LeukocyteBuildAreaTool;
     }
 
     private static void onClientTick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
 
         boolean holdingTool = isHoldingTool(mc.player);
-        ShapeToolState state = ShapeToolState.getInstance();
+        BuildAreaToolState state = BuildAreaToolState.getInstance();
 
         if (holdingTool && !toolEquipped) {
             toolEquipped = true;
             state.setToolHeld(true);
-            state.setAuthorityKeys(new java.util.ArrayList<>());
-            ClientPacketHandler.requestShapeToolData();
+            ClientBuildPacketHandler.requestBuildAreaData();
+            ShapeRenderer.getInstance().markNeedsRebuild();
         } else if (!holdingTool && toolEquipped) {
             toolEquipped = false;
             state.setToolHeld(false);
@@ -53,6 +53,7 @@ public final class ShapeToolHandler {
             lastLeftClickPressed = false;
             lastRightClickPressed = false;
             lastMiddleClickPressed = false;
+            ShapeRenderer.getInstance().markNeedsRebuild();
         }
 
         if (!holdingTool) return;
@@ -60,7 +61,7 @@ public final class ShapeToolHandler {
         boolean middleClickPressed = GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == GLFW.GLFW_PRESS;
         if (middleClickPressed && !lastMiddleClickPressed) {
             lastMiddleClickPressed = true;
-            mc.setScreen(new ToolMenuScreen());
+            mc.setScreen(new BuildAreaMenuScreen());
             return;
         }
         lastMiddleClickPressed = middleClickPressed;
@@ -77,14 +78,9 @@ public final class ShapeToolHandler {
                 state.setPreviewPos(null);
                 ShapeRenderer.getInstance().markNeedsRebuild();
             }
-        } else {
-            if (state.getPreviewPos() != null) {
-                state.setPreviewPos(null);
-                ShapeRenderer.getInstance().markNeedsRebuild();
-            }
         }
 
-        ShapeToolState.Mode mode = state.getMode();
+        BuildAreaToolState.Mode mode = state.getMode();
         updateHUD(mc, state, mode);
 
         boolean leftClickPressed = mc.options.attackKey.isPressed();
@@ -108,16 +104,13 @@ public final class ShapeToolHandler {
         lastRightClickPressed = rightClickPressed;
     }
 
-    private static void updateHUD(MinecraftClient mc, ShapeToolState state, ShapeToolState.Mode mode) {
+    private static void updateHUD(MinecraftClient mc, BuildAreaToolState state, BuildAreaToolState.Mode mode) {
         if (mc.player == null) return;
 
-        String auth = state.getSelectedAuthority();
-        if (auth == null) auth = "None";
-
-        String shapeInfo = "";
-        var shape = state.getSelectedShape();
-        if (shape != null) {
-            shapeInfo = " | Shape: " + shape.name();
+        String areaInfo = "";
+        var area = state.getSelectedArea();
+        if (area != null) {
+            areaInfo = " | Area: " + area.name();
         }
 
         String modeInfo = switch (mode) {
@@ -131,7 +124,7 @@ public final class ShapeToolHandler {
             case SUB_CORNER_2 -> "Right-click second corner to subtract";
         };
 
-        mc.player.sendMessage(Text.of("§e§l[Tool] §r§7Auth: §f" + auth + shapeInfo + " §7| " + modeInfo), true);
+        mc.player.sendMessage(Text.of("§e§l[Build Tool] §r§7Area: §f" + (area != null ? area.name() : "None") + areaInfo + " §7| " + modeInfo), true);
     }
 
     private static BlockPos getTargetPos(MinecraftClient mc) {
@@ -139,7 +132,7 @@ public final class ShapeToolHandler {
         return ((BlockHitResult) mc.crosshairTarget).getBlockPos();
     }
 
-    private static void handleLeftClick(MinecraftClient mc, ShapeToolState state, ShapeToolState.Mode mode) {
+    private static void handleLeftClick(MinecraftClient mc, BuildAreaToolState state, BuildAreaToolState.Mode mode) {
         if (mc.player == null || mc.world == null) return;
 
         switch (mode) {
@@ -147,7 +140,7 @@ public final class ShapeToolHandler {
                 BlockPos pos = getTargetPos(mc);
                 if (pos != null) {
                     state.setFirstCorner(pos);
-                    state.setMode(ShapeToolState.Mode.CREATE_CORNER_2);
+                    state.setMode(BuildAreaToolState.Mode.CREATE_CORNER_2);
                     ShapeRenderer.getInstance().markNeedsRebuild();
                 }
             }
@@ -155,7 +148,7 @@ public final class ShapeToolHandler {
                 BlockPos pos = getTargetPos(mc);
                 if (pos != null) {
                     state.setFirstCorner(pos);
-                    state.setMode(ShapeToolState.Mode.ADD_CORNER_2);
+                    state.setMode(BuildAreaToolState.Mode.ADD_CORNER_2);
                     ShapeRenderer.getInstance().markNeedsRebuild();
                 }
             }
@@ -163,8 +156,8 @@ public final class ShapeToolHandler {
                 BlockPos pos = getTargetPos(mc);
                 if (pos != null && state.getFirstCorner() != null) {
                     state.setSecondCorner(pos);
-                    createShapeFromCorners(mc, state);
-                    state.setMode(ShapeToolState.Mode.IDLE);
+                    createAreaFromCorners(mc, state);
+                    state.setMode(BuildAreaToolState.Mode.IDLE);
                     state.clearCorners();
                     ShapeRenderer.getInstance().markNeedsRebuild();
                 }
@@ -173,9 +166,12 @@ public final class ShapeToolHandler {
                 BlockPos pos = getTargetPos(mc);
                 if (pos != null && state.getFirstCorner() != null) {
                     state.setSecondCorner(pos);
-                    addBoxToShape(mc, state);
+                    var selected = state.getSelectedArea();
+                    if (selected != null) {
+                        ClientBuildPacketHandler.addBoxToArea(selected.name(), state.getFirstCorner(), pos);
+                    }
                     state.clearCorners();
-                    state.setMode(ShapeToolState.Mode.SELECTED);
+                    state.setMode(BuildAreaToolState.Mode.SELECTED);
                     ShapeRenderer.getInstance().markNeedsRebuild();
                 }
             }
@@ -183,7 +179,7 @@ public final class ShapeToolHandler {
         }
     }
 
-    private static void handleRightClick(MinecraftClient mc, ShapeToolState state, ShapeToolState.Mode mode) {
+    private static void handleRightClick(MinecraftClient mc, BuildAreaToolState state, BuildAreaToolState.Mode mode) {
         if (mc.player == null || mc.world == null) return;
 
         switch (mode) {
@@ -191,7 +187,7 @@ public final class ShapeToolHandler {
                 BlockPos pos = getTargetPos(mc);
                 if (pos != null) {
                     state.setFirstCorner(pos);
-                    state.setMode(ShapeToolState.Mode.SUB_CORNER_2);
+                    state.setMode(BuildAreaToolState.Mode.SUB_CORNER_2);
                     ShapeRenderer.getInstance().markNeedsRebuild();
                 }
             }
@@ -199,9 +195,12 @@ public final class ShapeToolHandler {
                 BlockPos pos = getTargetPos(mc);
                 if (pos != null && state.getFirstCorner() != null) {
                     state.setSecondCorner(pos);
-                    subtractBoxFromShape(mc, state);
+                    var selected = state.getSelectedArea();
+                    if (selected != null) {
+                        ClientBuildPacketHandler.subtractBoxFromArea(selected.name(), state.getFirstCorner(), pos);
+                    }
                     state.clearCorners();
-                    state.setMode(ShapeToolState.Mode.SELECTED);
+                    state.setMode(BuildAreaToolState.Mode.SELECTED);
                     ShapeRenderer.getInstance().markNeedsRebuild();
                 }
             }
@@ -212,10 +211,8 @@ public final class ShapeToolHandler {
         }
     }
 
-    private static void createShapeFromCorners(MinecraftClient mc, ShapeToolState state) {
+    private static void createAreaFromCorners(MinecraftClient mc, BuildAreaToolState state) {
         if (mc.world == null) return;
-        String auth = state.getSelectedAuthority();
-        if (auth == null) return;
 
         BlockPos a = state.getFirstCorner();
         BlockPos b = state.getSecondCorner();
@@ -233,55 +230,9 @@ public final class ShapeToolHandler {
         );
 
         String dimId = mc.world.getRegistryKey().getValue().toString();
-        ClientPacketHandler.createBoxShape(auth, dimId, min, max);
-    }
-
-    private static void addBoxToShape(MinecraftClient mc, ShapeToolState state) {
-        if (mc.world == null) return;
-        var shape = state.getSelectedShape();
-        if (shape == null) return;
-
-        BlockPos a = state.getFirstCorner();
-        BlockPos b = state.getSecondCorner();
-        if (a == null || b == null) return;
-
-        BlockPos min = new BlockPos(
-            Math.min(a.getX(), b.getX()),
-            Math.min(a.getY(), b.getY()),
-            Math.min(a.getZ(), b.getZ())
-        );
-        BlockPos max = new BlockPos(
-            Math.max(a.getX(), b.getX()),
-            Math.max(a.getY(), b.getY()),
-            Math.max(a.getZ(), b.getZ())
-        );
-
-        String dimId = mc.world.getRegistryKey().getValue().toString();
-        ClientPacketHandler.addBoxToShape(shape.authority(), shape.name(), dimId, min, max);
-    }
-
-    private static void subtractBoxFromShape(MinecraftClient mc, ShapeToolState state) {
-        if (mc.world == null) return;
-        var shape = state.getSelectedShape();
-        if (shape == null) return;
-
-        BlockPos a = state.getFirstCorner();
-        BlockPos b = state.getSecondCorner();
-        if (a == null || b == null) return;
-
-        BlockPos min = new BlockPos(
-            Math.min(a.getX(), b.getX()),
-            Math.min(a.getY(), b.getY()),
-            Math.min(a.getZ(), b.getZ())
-        );
-        BlockPos max = new BlockPos(
-            Math.max(a.getX(), b.getX()),
-            Math.max(a.getY(), b.getY()),
-            Math.max(a.getZ(), b.getZ())
-        );
-
-        String dimId = mc.world.getRegistryKey().getValue().toString();
-        ClientPacketHandler.subtractBoxFromShape(shape.authority(), shape.name(), dimId, min, max);
+        String name = "build_" + System.currentTimeMillis();
+        ClientBuildPacketHandler.createBuildArea(name, dimId, min, max);
+        BuildAreaToolState.setPendingAutoSelect(name);
     }
 
     private static void onWorldRenderLast(net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext context) {

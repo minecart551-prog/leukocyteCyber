@@ -39,6 +39,7 @@ public final class ShapeToolState {
 
     private BlockPos firstCorner = null;
     private BlockPos secondCorner = null;
+    private BlockPos previewPos = null;
 
     private static final int[] AUTHORITY_COLORS = {
         0xFF00FF00, 0xFF0088FF, 0xFFFF4444, 0xFFFFFF00, 0xFF00FFFF,
@@ -125,15 +126,23 @@ public final class ShapeToolState {
             || mode == Mode.SUB_CORNER_1 || mode == Mode.SUB_CORNER_2;
     }
 
+    public boolean isPlacingCorners() {
+        return mode == Mode.CREATE_CORNER_2 || mode == Mode.ADD_CORNER_2 || mode == Mode.SUB_CORNER_2;
+    }
+
     public BlockPos getFirstCorner() { return firstCorner; }
     public void setFirstCorner(BlockPos pos) { this.firstCorner = pos; }
 
     public BlockPos getSecondCorner() { return secondCorner; }
     public void setSecondCorner(BlockPos pos) { this.secondCorner = pos; }
 
+    public BlockPos getPreviewPos() { return previewPos; }
+    public void setPreviewPos(BlockPos pos) { this.previewPos = pos; }
+
     public void clearCorners() {
         this.firstCorner = null;
         this.secondCorner = null;
+        this.previewPos = null;
     }
 
     public int getAuthorityColor(int index) {
@@ -159,6 +168,7 @@ public final class ShapeToolState {
         selectedShapeIndex = -1;
         firstCorner = null;
         secondCorner = null;
+        previewPos = null;
     }
 
     private static String savedAuthority = null;

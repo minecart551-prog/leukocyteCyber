@@ -166,6 +166,9 @@ public final class ProtectCommand {
                     .then(literal("test").executes(ProtectCommand::testRulesHere))
                     .then(literal("gui").executes(ProtectCommand::openGui))
                     .then(literal("tool").executes(ProtectCommand::giveShapeTool))
+                    .then(literal("build")
+                        .then(literal("tool").executes(ProtectCommand::giveBuildTool))
+                    )
         );
         // @formatter:on
     }
@@ -551,6 +554,16 @@ public final class ProtectCommand {
             player.dropItem(stack, false);
         }
         context.getSource().sendFeedback(() -> Text.literal("Given Shape Tool. Hold it and press middle click for the menu."), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int giveBuildTool(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        var player = context.getSource().getPlayer();
+        var stack = new net.minecraft.item.ItemStack(xyz.nucleoid.leukocyte.LeukocyteInitializer.BUILD_AREA_TOOL);
+        if (!player.getInventory().insertStack(stack)) {
+            player.dropItem(stack, false);
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Given Build Area Tool. Hold it and press middle click for the menu."), false);
         return Command.SINGLE_SUCCESS;
     }
 }

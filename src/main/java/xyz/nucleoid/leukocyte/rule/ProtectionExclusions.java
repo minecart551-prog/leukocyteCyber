@@ -67,6 +67,14 @@ public final class ProtectionExclusions {
         return this.players.add(profile.getId());
     }
 
+    public boolean addPlayerByUUID(UUID uuid) {
+        return this.players.add(uuid);
+    }
+
+    public boolean removePlayerByUUID(UUID uuid) {
+        return this.players.remove(uuid);
+    }
+
     public boolean removePlayer(GameProfile profile) {
         return this.players.remove(profile.getId());
     }
