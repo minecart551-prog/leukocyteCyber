@@ -48,6 +48,11 @@ public final class LeukocyteNetworking {
     public static final byte BUILD_ACTION_TELEPORT_TO_AREA = 6;
     public static final byte BUILD_ACTION_ADD_BOX = 7;
     public static final byte BUILD_ACTION_SUBTRACT_BOX = 8;
+    public static final byte BUILD_ACTION_ADD_WHITELIST_PLAYER = 9;
+    public static final byte BUILD_ACTION_REMOVE_WHITELIST_PLAYER = 10;
+    public static final byte BUILD_ACTION_TOGGLE_WHITELIST = 11;
+    public static final byte BUILD_ACTION_ADD_BLOCKED_PLAYER = 12;
+    public static final byte BUILD_ACTION_REMOVE_BLOCKED_PLAYER = 13;
 
     public static final byte BUILD_RESPONSE_DATA = 0;
     public static final byte BUILD_RESPONSE_RESULT = 1;

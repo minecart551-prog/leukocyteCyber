@@ -79,7 +79,7 @@ public final class ServerPacketHandler {
         root.put("authorities", listTag);
         buf.writeNbt(root);
 
-        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        safeSend(player, buf);
     }
 
     private static void handleRequestDetail(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data) {
@@ -97,7 +97,7 @@ public final class ServerPacketHandler {
         var root = (NbtCompound) Authority.CODEC.encodeStart(NbtOps.INSTANCE, authority).result().orElse(new NbtCompound());
         buf.writeNbt(root);
 
-        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        safeSend(player, buf);
     }
 
     private static void handleAddAuthority(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data) {
@@ -377,7 +377,7 @@ public final class ServerPacketHandler {
         root.put("authorities", listTag);
         buf.writeNbt(root);
 
-        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        safeSend(player, buf);
     }
 
     private static void handleRequestShapeToolData(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data) {
@@ -403,7 +403,7 @@ public final class ServerPacketHandler {
         root.put("authorities", authList);
         buf.writeNbt(root);
 
-        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        safeSend(player, buf);
     }
 
     private static void extractBoxShapes(net.minecraft.nbt.NbtList listTag, String authorityKey, String shapeName,
@@ -780,7 +780,7 @@ public final class ServerPacketHandler {
         root.putBoolean("success", success);
         root.putString("message", message);
         buf.writeNbt(root);
-        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        safeSend(player, buf);
     }
 
     private static void sendResultWithShape(ServerPlayerEntity player, boolean success, String message, String authority, String shapeName) {
@@ -792,6 +792,12 @@ public final class ServerPacketHandler {
         root.putString("createdAuthority", authority);
         root.putString("createdShapeName", shapeName);
         buf.writeNbt(root);
-        ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        safeSend(player, buf);
+    }
+
+    private static void safeSend(ServerPlayerEntity player, net.minecraft.network.PacketByteBuf buf) {
+        if (ServerPlayNetworking.canSend(player, LeukocyteNetworking.S2C_CHANNEL)) {
+            ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+        }
     }
 }

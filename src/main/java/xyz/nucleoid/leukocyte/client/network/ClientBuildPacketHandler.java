@@ -17,6 +17,7 @@ import java.util.function.Consumer;
 public final class ClientBuildPacketHandler {
     private static Consumer<String> resultCallback;
     private static List<String> globalBlockedItems = new ArrayList<>();
+    private static List<String> globalBlockedPlayers = new ArrayList<>();
     private static boolean inBuildMode = false;
 
     public static void register() {
@@ -65,7 +66,16 @@ public final class ClientBuildPacketHandler {
                 }
             }
 
-            areas.add(new BuildAreaToolState.BuildAreaEntry(name, dimension, subBoxes));
+            var wl = new ArrayList<String>();
+            if (tag.contains("whitelist", NbtElement.LIST_TYPE)) {
+                var wlList = tag.getList("whitelist", NbtElement.STRING_TYPE);
+                for (int j = 0; j < wlList.size(); j++) {
+                    wl.add(wlList.getString(j));
+                }
+            }
+            boolean wlEnabled = tag.getBoolean("whitelist_enabled");
+
+            areas.add(new BuildAreaToolState.BuildAreaEntry(name, dimension, subBoxes, wl, wlEnabled));
         }
 
         BuildAreaToolState.getInstance().setBuildAreas(areas);
@@ -75,6 +85,12 @@ public final class ClientBuildPacketHandler {
         globalBlockedItems.clear();
         for (int i = 0; i < blockedList.size(); i++) {
             globalBlockedItems.add(blockedList.getString(i));
+        }
+
+        var blockedPlayersList = data.getList("global_blocked_players", NbtElement.STRING_TYPE);
+        globalBlockedPlayers.clear();
+        for (int i = 0; i < blockedPlayersList.size(); i++) {
+            globalBlockedPlayers.add(blockedPlayersList.getString(i));
         }
 
         xyz.nucleoid.leukocyte.client.render.ShapeRenderer.getInstance().markNeedsRebuild();
@@ -93,6 +109,10 @@ public final class ClientBuildPacketHandler {
 
     public static List<String> getGlobalBlockedItems() {
         return globalBlockedItems;
+    }
+
+    public static List<String> getGlobalBlockedPlayers() {
+        return globalBlockedPlayers;
     }
 
     public static boolean isInBuildMode() {
@@ -198,6 +218,53 @@ public final class ClientBuildPacketHandler {
         buf.writeByte(LeukocyteNetworking.BUILD_ACTION_TELEPORT_TO_AREA);
         var data = new NbtCompound();
         data.putString("name", name);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void addWhitelistPlayer(String areaName, String playerName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_ADD_WHITELIST_PLAYER);
+        var data = new NbtCompound();
+        data.putString("name", areaName);
+        data.putString("player", playerName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void removeWhitelistPlayer(String areaName, String playerName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_REMOVE_WHITELIST_PLAYER);
+        var data = new NbtCompound();
+        data.putString("name", areaName);
+        data.putString("player", playerName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void toggleWhitelist(String areaName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_TOGGLE_WHITELIST);
+        var data = new NbtCompound();
+        data.putString("name", areaName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void addBlockedPlayer(String playerName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_ADD_BLOCKED_PLAYER);
+        var data = new NbtCompound();
+        data.putString("player", playerName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void removeBlockedPlayer(String playerName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_REMOVE_BLOCKED_PLAYER);
+        var data = new NbtCompound();
+        data.putString("player", playerName);
         buf.writeNbt(data);
         ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
     }

@@ -15,13 +15,19 @@ import java.util.List;
 public record BuildArea(
     String name,
     RegistryKey<World> dimension,
-    List<int[]> subBoxes
+    List<int[]> subBoxes,
+    List<String> whitelist,
+    boolean whitelistEnabled
 ) {
     public BuildArea(String name, RegistryKey<World> dimension, BlockPos min, BlockPos max) {
         this(name, dimension, List.of(new int[]{
             min.getX(), min.getY(), min.getZ(),
             max.getX(), max.getY(), max.getZ()
-        }));
+        }), new ArrayList<>(), false);
+    }
+
+    public BuildArea(String name, RegistryKey<World> dimension, List<int[]> subBoxes) {
+        this(name, dimension, subBoxes, new ArrayList<>(), false);
     }
 
     public boolean contains(BlockPos pos) {
@@ -82,7 +88,7 @@ public record BuildArea(
             Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ()),
             Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ())
         });
-        return new BuildArea(area.name(), area.dimension(), newSubBoxes);
+        return new BuildArea(area.name(), area.dimension(), newSubBoxes, area.whitelist(), area.whitelistEnabled());
     }
 
     public static BuildArea subtractBox(BuildArea area, BlockPos a, BlockPos b) {
@@ -94,7 +100,7 @@ public record BuildArea(
             subtractBoxFromBox(box[0], box[1], box[2], box[3], box[4], box[5],
                 sMinX, sMinY, sMinZ, sMaxX, sMaxY, sMaxZ, remaining);
         }
-        return new BuildArea(area.name(), area.dimension(), remaining);
+        return new BuildArea(area.name(), area.dimension(), remaining, area.whitelist(), area.whitelistEnabled());
     }
 
     private static void subtractBoxFromBox(

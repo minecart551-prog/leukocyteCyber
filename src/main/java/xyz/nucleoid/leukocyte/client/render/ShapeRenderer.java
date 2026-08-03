@@ -11,8 +11,6 @@ import net.minecraft.util.math.Box;
 import xyz.nucleoid.leukocyte.client.tool.BuildAreaToolState;
 import xyz.nucleoid.leukocyte.client.tool.ShapeToolState;
 import xyz.nucleoid.leukocyte.client.util.FaceMerger;
-import xyz.nucleoid.leukocyte.item.LeukocyteBuildAreaTool;
-import xyz.nucleoid.leukocyte.item.LeukocyteShapeTool;
 
 import java.awt.*;
 import java.util.HashMap;
@@ -56,8 +54,8 @@ public class ShapeRenderer {
     public void render(double camX, double camY, double camZ, MatrixStack matrices) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
-        boolean holdingShapeTool = mc.player.getMainHandStack().getItem() instanceof LeukocyteShapeTool;
-        boolean holdingBuildTool = mc.player.getMainHandStack().getItem() instanceof LeukocyteBuildAreaTool;
+        boolean holdingShapeTool = xyz.nucleoid.leukocyte.item.ToolItems.isShapeTool(mc.player.getMainHandStack());
+        boolean holdingBuildTool = xyz.nucleoid.leukocyte.item.ToolItems.isBuildAreaTool(mc.player.getMainHandStack());
         if (!holdingShapeTool && !holdingBuildTool) return;
 
         var currentDim = mc.world.getRegistryKey();

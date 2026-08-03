@@ -49,16 +49,20 @@ public final class BuildAreaMenuScreen extends Screen {
                 client.setScreen(new BlockedItemsScreen());
             }).dimensions(width / 2 - btnW - BTN_GAP / 2, btnY - BTN_H - BTN_GAP, btnW, BTN_H).build());
 
+            addDrawableChild(ButtonWidget.builder(Text.literal("Whitelist"), button -> {
+                client.setScreen(new WhitelistScreen(area.name(), area.whitelist(), area.whitelistEnabled()));
+            }).dimensions(width / 2 + BTN_GAP / 2, btnY - BTN_H - BTN_GAP, btnW, BTN_H).build());
+
             addDrawableChild(ButtonWidget.builder(Text.literal("Deselect"), button -> {
                 state.reset();
                 ShapeRenderer.getInstance().markNeedsRebuild();
                 client.setScreen(null);
-            }).dimensions(width / 2 + BTN_GAP / 2, btnY - BTN_H - BTN_GAP, btnW, BTN_H).build());
+            }).dimensions(width / 2 - btnW - BTN_GAP / 2, btnY - 2 * (BTN_H + BTN_GAP), btnW, BTN_H).build());
 
             addDrawableChild(ButtonWidget.builder(Text.literal("Teleport"), button -> {
                 ClientBuildPacketHandler.teleportToArea(area.name());
                 client.setScreen(null);
-            }).dimensions(width / 2 - btnW - BTN_GAP / 2, btnY - 2 * (BTN_H + BTN_GAP), btnW, BTN_H).build());
+            }).dimensions(width / 2 + BTN_GAP / 2, btnY - 2 * (BTN_H + BTN_GAP), btnW, BTN_H).build());
 
             addDrawableChild(ButtonWidget.builder(Text.literal("Rename"), button -> {
                 String oldName = area.name();
@@ -71,10 +75,16 @@ public final class BuildAreaMenuScreen extends Screen {
                         }
                     }
                 ));
-            }).dimensions(width / 2 + BTN_GAP / 2, btnY - 2 * (BTN_H + BTN_GAP), btnW, BTN_H).build());
+            }).dimensions(width / 2 - btnW - BTN_GAP / 2, btnY - 3 * (BTN_H + BTN_GAP), btnW, BTN_H).build());
         } else {
             addDrawableChild(ButtonWidget.builder(Text.literal("Blocked Items"), button -> {
                 client.setScreen(new BlockedItemsScreen());
+            }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
+
+            btnY -= BTN_H + BTN_GAP;
+
+            addDrawableChild(ButtonWidget.builder(Text.literal("Blocked Players"), button -> {
+                client.setScreen(new BlockedPlayersScreen());
             }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
 
             btnY -= BTN_H + BTN_GAP;
@@ -107,7 +117,7 @@ public final class BuildAreaMenuScreen extends Screen {
 
         int listTop = HEADER_H;
         boolean isEditing = state.isEditingArea();
-        int bottomButtons = isEditing ? 2 : 1;
+        int bottomButtons = isEditing ? 4 : 3;
         int btnBlockH = bottomButtons * BTN_H + (bottomButtons - 1) * BTN_GAP + BTN_H + BTN_GAP;
         int listBottom = height - BOTTOM_MARGIN - btnBlockH - 4;
         int visible = Math.max(0, Math.min(filteredAreas.size(), (listBottom - listTop) / ENTRY_H));
@@ -164,7 +174,7 @@ public final class BuildAreaMenuScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         int listTop = HEADER_H;
         boolean isEditing = state.isEditingArea();
-        int bottomButtons = isEditing ? 2 : 1;
+        int bottomButtons = isEditing ? 4 : 3;
         int btnBlockH = bottomButtons * BTN_H + (bottomButtons - 1) * BTN_GAP + BTN_H + BTN_GAP;
         int listBottom = height - BOTTOM_MARGIN - btnBlockH - 4;
         int visible = Math.max(0, Math.min(filteredAreas.size(), (listBottom - listTop) / ENTRY_H));
@@ -179,7 +189,7 @@ public final class BuildAreaMenuScreen extends Screen {
 
         int listTop = HEADER_H;
         boolean isEditing = state.isEditingArea();
-        int bottomButtons = isEditing ? 2 : 1;
+        int bottomButtons = isEditing ? 4 : 3;
         int btnBlockH = bottomButtons * BTN_H + (bottomButtons - 1) * BTN_GAP + BTN_H + BTN_GAP;
         int listBottom = height - BOTTOM_MARGIN - btnBlockH - 4;
         int visible = Math.max(0, Math.min(filteredAreas.size(), (listBottom - listTop) / ENTRY_H));

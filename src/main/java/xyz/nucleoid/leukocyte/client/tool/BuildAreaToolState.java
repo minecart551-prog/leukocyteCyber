@@ -147,7 +147,8 @@ public final class BuildAreaToolState {
         savedAreaName = null;
     }
 
-    public record BuildAreaEntry(String name, RegistryKey<World> dimension, List<int[]> subBoxes) {
+    public record BuildAreaEntry(String name, RegistryKey<World> dimension, List<int[]> subBoxes,
+                                  List<String> whitelist, boolean whitelistEnabled) {
         public BlockPos min() {
             if (subBoxes.isEmpty()) return BlockPos.ORIGIN;
             int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;

@@ -23,6 +23,7 @@ public final class LeukocyteBuild extends PersistentState {
 
     private final List<BuildArea> areas = new ArrayList<>();
     private final List<String> globalBlockedItems = new ArrayList<>();
+    private final List<String> globalBlockedPlayers = new ArrayList<>();
 
     private LeukocyteBuild() {
     }
@@ -105,6 +106,27 @@ public final class LeukocyteBuild extends PersistentState {
         return false;
     }
 
+    public List<String> getGlobalBlockedPlayers() {
+        return this.globalBlockedPlayers;
+    }
+
+    public boolean addGlobalBlockedPlayer(String playerName) {
+        if (this.globalBlockedPlayers.contains(playerName)) {
+            return false;
+        }
+        this.globalBlockedPlayers.add(playerName);
+        this.markDirty();
+        return true;
+    }
+
+    public boolean removeGlobalBlockedPlayer(String playerName) {
+        if (this.globalBlockedPlayers.remove(playerName)) {
+            this.markDirty();
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public boolean isDirty() {
         return true;
@@ -125,6 +147,14 @@ public final class LeukocyteBuild extends PersistentState {
                 subBoxes.add(arr);
             }
             tag.put("sub_boxes", subBoxes);
+
+            var whitelist = new NbtList();
+            for (String player : area.whitelist()) {
+                whitelist.add(NbtString.of(player));
+            }
+            tag.put("whitelist", whitelist);
+            tag.putBoolean("whitelist_enabled", area.whitelistEnabled());
+
             list.add(tag);
         }
         root.put("areas", list);
@@ -134,6 +164,12 @@ public final class LeukocyteBuild extends PersistentState {
             blocked.add(NbtString.of(item));
         }
         root.put("global_blocked_items", blocked);
+
+        var blockedPlayers = new NbtList();
+        for (String player : this.globalBlockedPlayers) {
+            blockedPlayers.add(NbtString.of(player));
+        }
+        root.put("global_blocked_players", blockedPlayers);
 
         return root;
     }
@@ -163,7 +199,15 @@ public final class LeukocyteBuild extends PersistentState {
                     }
                 }
                 if (!subBoxes.isEmpty()) {
-                    build.areas.add(new BuildArea(name, dimension, subBoxes));
+                    var wl = new ArrayList<String>();
+                    if (tag.contains("whitelist", NbtElement.LIST_TYPE)) {
+                        var wlList = tag.getList("whitelist", NbtElement.STRING_TYPE);
+                        for (int j = 0; j < wlList.size(); j++) {
+                            wl.add(wlList.getString(j));
+                        }
+                    }
+                    boolean wlEnabled = tag.getBoolean("whitelist_enabled");
+                    build.areas.add(new BuildArea(name, dimension, subBoxes, wl, wlEnabled));
                 }
             } else if (tag.contains("min") && tag.contains("max")) {
                 var min = readBlockPos(tag.getCompound("min"));
@@ -180,6 +224,14 @@ public final class LeukocyteBuild extends PersistentState {
             seen.addAll(getDefaultBlockedItems());
         }
         build.globalBlockedItems.addAll(seen);
+
+        var blockedPlayers = root.getList("global_blocked_players", NbtElement.STRING_TYPE);
+        var seenPlayers = new java.util.LinkedHashSet<String>();
+        for (int i = 0; i < blockedPlayers.size(); i++) {
+            seenPlayers.add(blockedPlayers.getString(i));
+        }
+        build.globalBlockedPlayers.addAll(seenPlayers);
+
         return build;
     }
 

@@ -44,17 +44,24 @@ public final class ServerBuildPacketHandler {
                     case LeukocyteNetworking.BUILD_ACTION_TELEPORT_TO_AREA -> handleTeleport(player, build, data);
                     case LeukocyteNetworking.BUILD_ACTION_ADD_BOX -> handleAddBox(player, build, data);
                     case LeukocyteNetworking.BUILD_ACTION_SUBTRACT_BOX -> handleSubtractBox(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_ADD_WHITELIST_PLAYER -> handleAddWhitelistPlayer(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_REMOVE_WHITELIST_PLAYER -> handleRemoveWhitelistPlayer(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_TOGGLE_WHITELIST -> handleToggleWhitelist(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_ADD_BLOCKED_PLAYER -> handleAddBlockedPlayer(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_REMOVE_BLOCKED_PLAYER -> handleRemoveBlockedPlayer(player, build, data);
                 }
             });
         });
     }
 
     public static void sendBuildData(ServerPlayerEntity player) {
+        if (!ServerPlayNetworking.canSend(player, LeukocyteNetworking.BUILD_S2C_CHANNEL)) return;
         var build = LeukocyteBuild.get(player.getServer().getOverworld());
         handleRequestData(player, build);
     }
 
     public static void sendBuildModeStatus(ServerPlayerEntity player, boolean inBuildMode) {
+        if (!ServerPlayNetworking.canSend(player, LeukocyteNetworking.BUILD_S2C_CHANNEL)) return;
         var buf = PacketByteBufs.create();
         buf.writeByte(LeukocyteNetworking.BUILD_RESPONSE_BUILD_MODE_STATUS);
         var root = new NbtCompound();
@@ -64,6 +71,7 @@ public final class ServerBuildPacketHandler {
     }
 
     private static void handleRequestData(ServerPlayerEntity player, LeukocyteBuild build) {
+        if (!ServerPlayNetworking.canSend(player, LeukocyteNetworking.BUILD_S2C_CHANNEL)) return;
         var buf = PacketByteBufs.create();
         buf.writeByte(LeukocyteNetworking.BUILD_RESPONSE_DATA);
 
@@ -81,6 +89,14 @@ public final class ServerBuildPacketHandler {
                 subBoxes.add(arr);
             }
             tag.put("sub_boxes", subBoxes);
+
+            var whitelist = new NbtList();
+            for (String wlPlayer : area.whitelist()) {
+                whitelist.add(NbtString.of(wlPlayer));
+            }
+            tag.put("whitelist", whitelist);
+            tag.putBoolean("whitelist_enabled", area.whitelistEnabled());
+
             list.add(tag);
         }
         root.put("areas", list);
@@ -90,6 +106,12 @@ public final class ServerBuildPacketHandler {
             blocked.add(NbtString.of(item));
         }
         root.put("global_blocked_items", blocked);
+
+        var blockedPlayers = new NbtList();
+        for (String bp : build.getGlobalBlockedPlayers()) {
+            blockedPlayers.add(NbtString.of(bp));
+        }
+        root.put("global_blocked_players", blockedPlayers);
 
         buf.writeNbt(root);
 
@@ -140,7 +162,7 @@ public final class ServerBuildPacketHandler {
         }
 
         build.removeArea(oldName);
-        build.addArea(new BuildArea(newName, area.dimension(), area.subBoxes()));
+        build.addArea(new BuildArea(newName, area.dimension(), area.subBoxes(), area.whitelist(), area.whitelistEnabled()));
         sendResult(player, true, "Renamed '" + oldName + "' to '" + newName + "'.");
     }
 
@@ -233,7 +255,84 @@ public final class ServerBuildPacketHandler {
         }
     }
 
+    private static void handleAddWhitelistPlayer(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String areaName = data.getString("name");
+        String playerName = data.getString("player");
+        var area = build.getArea(areaName);
+        if (area == null) {
+            sendResult(player, false, "Build area '" + areaName + "' not found.");
+            return;
+        }
+        if (playerName.isEmpty()) {
+            sendResult(player, false, "Player name cannot be empty.");
+            return;
+        }
+        var newWhitelist = new ArrayList<>(area.whitelist());
+        if (newWhitelist.contains(playerName)) {
+            sendResult(player, false, "'" + playerName + "' is already in the whitelist.");
+            return;
+        }
+        newWhitelist.add(playerName);
+        build.replaceArea(areaName, new BuildArea(area.name(), area.dimension(), area.subBoxes(), newWhitelist, area.whitelistEnabled()));
+        sendResult(player, true, "Added '" + playerName + "' to whitelist of '" + areaName + "'.");
+    }
+
+    private static void handleRemoveWhitelistPlayer(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String areaName = data.getString("name");
+        String playerName = data.getString("player");
+        var area = build.getArea(areaName);
+        if (area == null) {
+            sendResult(player, false, "Build area '" + areaName + "' not found.");
+            return;
+        }
+        var newWhitelist = new ArrayList<>(area.whitelist());
+        if (newWhitelist.remove(playerName)) {
+            build.replaceArea(areaName, new BuildArea(area.name(), area.dimension(), area.subBoxes(), newWhitelist, area.whitelistEnabled()));
+            sendResult(player, true, "Removed '" + playerName + "' from whitelist of '" + areaName + "'.");
+        } else {
+            sendResult(player, false, "'" + playerName + "' is not in the whitelist.");
+        }
+    }
+
+    private static void handleToggleWhitelist(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String areaName = data.getString("name");
+        var area = build.getArea(areaName);
+        if (area == null) {
+            sendResult(player, false, "Build area '" + areaName + "' not found.");
+            return;
+        }
+        boolean newState = !area.whitelistEnabled();
+        build.replaceArea(areaName, new BuildArea(area.name(), area.dimension(), area.subBoxes(), area.whitelist(), newState));
+        sendResult(player, true, "Whitelist for '" + areaName + "' " + (newState ? "enabled" : "disabled") + ".");
+    }
+
+    private static void handleAddBlockedPlayer(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String playerName = data.getString("player");
+        if (playerName.isEmpty()) {
+            sendResult(player, false, "Player name cannot be empty.");
+            return;
+        }
+        if (build.addGlobalBlockedPlayer(playerName)) {
+            sendResult(player, true, "Added '" + playerName + "' to global blocked players.");
+        } else {
+            sendResult(player, false, "'" + playerName + "' is already blocked.");
+        }
+    }
+
+    private static void handleRemoveBlockedPlayer(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String playerName = data.getString("player");
+        if (build.removeGlobalBlockedPlayer(playerName)) {
+            sendResult(player, true, "Removed '" + playerName + "' from global blocked players.");
+        } else {
+            sendResult(player, false, "'" + playerName + "' is not in the blocked players list.");
+        }
+    }
+
     private static void sendResult(ServerPlayerEntity player, boolean success, String message) {
+        if (!ServerPlayNetworking.canSend(player, LeukocyteNetworking.BUILD_S2C_CHANNEL)) {
+            player.sendMessage(net.minecraft.text.Text.literal((success ? "§a" : "§c") + message), false);
+            return;
+        }
         var buf = PacketByteBufs.create();
         buf.writeByte(LeukocyteNetworking.BUILD_RESPONSE_RESULT);
         var root = new NbtCompound();

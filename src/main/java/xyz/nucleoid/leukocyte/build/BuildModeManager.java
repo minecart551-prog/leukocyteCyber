@@ -66,6 +66,19 @@ public final class BuildModeManager {
             return false;
         }
 
+        var build = LeukocyteBuild.get(player.getServer().getOverworld());
+        String playerName = player.getName().getString();
+
+        if (build.getGlobalBlockedPlayers().contains(playerName)) {
+            player.sendMessage(Text.literal("§cYou are blocked from using build mode!"), false);
+            return false;
+        }
+
+        if (area.whitelistEnabled() && !area.whitelist().contains(playerName)) {
+            player.sendMessage(Text.literal("§cYou are not in the whitelist for this build area!"), false);
+            return false;
+        }
+
         var returnPos = player.getBlockPos().mutableCopy();
         var returnWorld = player.getWorld().getRegistryKey();
         var savedGameMode = player.interactionManager.getGameMode();
