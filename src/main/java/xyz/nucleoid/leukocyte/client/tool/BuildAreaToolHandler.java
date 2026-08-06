@@ -13,6 +13,7 @@ import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
 import xyz.nucleoid.leukocyte.client.network.ClientBuildPacketHandler;
 import xyz.nucleoid.leukocyte.client.render.ShapeRenderer;
+import xyz.nucleoid.leukocyte.item.LeukocyteBuildAreaTool;
 
 @Environment(EnvType.CLIENT)
 public final class BuildAreaToolHandler {
@@ -31,7 +32,7 @@ public final class BuildAreaToolHandler {
 
     private static boolean isHoldingTool(PlayerEntity player) {
         if (player == null) return false;
-        return xyz.nucleoid.leukocyte.item.ToolItems.isBuildAreaTool(player.getMainHandStack());
+        return player.getMainHandStack().getItem() instanceof LeukocyteBuildAreaTool;
     }
 
     private static void onClientTick(MinecraftClient mc) {

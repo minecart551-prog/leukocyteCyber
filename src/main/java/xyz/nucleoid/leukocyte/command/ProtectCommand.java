@@ -537,11 +537,6 @@ public final class ProtectCommand {
     private static int openGui(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         var player = context.getSource().getPlayer();
 
-        if (!ServerPlayNetworking.canSend(player, LeukocyteNetworking.S2C_CHANNEL)) {
-            context.getSource().sendFeedback(() -> Text.literal("§cThe Leukocyte GUI requires the client mod."), false);
-            return Command.SINGLE_SUCCESS;
-        }
-
         var buf = PacketByteBufs.create();
         buf.writeByte(LeukocyteNetworking.RESPONSE_OPEN_SCREEN);
         buf.writeNbt(new NbtCompound());
@@ -554,7 +549,7 @@ public final class ProtectCommand {
 
     private static int giveShapeTool(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         var player = context.getSource().getPlayer();
-        var stack = xyz.nucleoid.leukocyte.item.ToolItems.createShapeTool();
+        var stack = new net.minecraft.item.ItemStack(xyz.nucleoid.leukocyte.LeukocyteInitializer.SHAPE_TOOL);
         if (!player.getInventory().insertStack(stack)) {
             player.dropItem(stack, false);
         }
@@ -564,7 +559,7 @@ public final class ProtectCommand {
 
     private static int giveBuildTool(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         var player = context.getSource().getPlayer();
-        var stack = xyz.nucleoid.leukocyte.item.ToolItems.createBuildAreaTool();
+        var stack = new net.minecraft.item.ItemStack(xyz.nucleoid.leukocyte.LeukocyteInitializer.BUILD_AREA_TOOL);
         if (!player.getInventory().insertStack(stack)) {
             player.dropItem(stack, false);
         }

@@ -13,6 +13,7 @@ import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
 import xyz.nucleoid.leukocyte.client.network.ClientPacketHandler;
 import xyz.nucleoid.leukocyte.client.render.ShapeRenderer;
+import xyz.nucleoid.leukocyte.item.LeukocyteShapeTool;
 
 @Environment(EnvType.CLIENT)
 public final class ShapeToolHandler {
@@ -31,7 +32,7 @@ public final class ShapeToolHandler {
 
     private static boolean isHoldingTool(PlayerEntity player) {
         if (player == null) return false;
-        return xyz.nucleoid.leukocyte.item.ToolItems.isShapeTool(player.getMainHandStack());
+        return player.getMainHandStack().getItem() instanceof LeukocyteShapeTool;
     }
 
     private static void onClientTick(MinecraftClient mc) {

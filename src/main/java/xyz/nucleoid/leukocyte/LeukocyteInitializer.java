@@ -8,14 +8,19 @@ import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Identifier;
 import xyz.nucleoid.leukocyte.build.BuildModeManager;
 import xyz.nucleoid.leukocyte.command.BuildCommand;
 import xyz.nucleoid.leukocyte.command.ProtectCommand;
 import xyz.nucleoid.leukocyte.command.ShapeCommand;
-import xyz.nucleoid.leukocyte.item.ToolItems;
+import xyz.nucleoid.leukocyte.item.LeukocyteBuildAreaTool;
+import xyz.nucleoid.leukocyte.item.LeukocyteShapeTool;
 import xyz.nucleoid.leukocyte.network.ServerBuildPacketHandler;
 import xyz.nucleoid.leukocyte.network.ServerPacketHandler;
 import xyz.nucleoid.leukocyte.rule.enforcer.LeukocyteRuleEnforcer;
@@ -23,8 +28,14 @@ import xyz.nucleoid.leukocyte.shape.*;
 import xyz.nucleoid.stimuli.Stimuli;
 
 public final class LeukocyteInitializer implements ModInitializer {
+    public static final LeukocyteShapeTool SHAPE_TOOL = new LeukocyteShapeTool(new FabricItemSettings());
+    public static final LeukocyteBuildAreaTool BUILD_AREA_TOOL = new LeukocyteBuildAreaTool(new FabricItemSettings());
+
     @Override
     public void onInitialize() {
+        Registry.register(Registries.ITEM, new Identifier("leukocyte", "shape_tool"), SHAPE_TOOL);
+        Registry.register(Registries.ITEM, new Identifier("leukocyte", "build_area_tool"), BUILD_AREA_TOOL);
+
         ProtectionShape.register("universal", UniversalShape.CODEC);
         ProtectionShape.register("dimension", DimensionShape.CODEC);
         ProtectionShape.register("box", BoxShape.CODEC);
@@ -49,7 +60,8 @@ public final class LeukocyteInitializer implements ModInitializer {
         BuildModeManager.register();
 
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
-            if (ToolItems.isAnyLeukocyteTool(player.getStackInHand(hand))) {
+            if (player.getStackInHand(hand).getItem() instanceof LeukocyteShapeTool
+                || player.getStackInHand(hand).getItem() instanceof LeukocyteBuildAreaTool) {
                 return ActionResult.FAIL;
             }
             if (BuildModeManager.isInBuildMode(player.getUuid())
