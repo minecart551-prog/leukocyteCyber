@@ -6,12 +6,8 @@
   "mixins": [
     "shape.ServerPlayerEntityMixin",
     "build.ServerPlayNetworkHandlerMixin",
+    "build.ServerPlayerEntityOpenScreenMixin",
     "build.ItemEntityMixin"
-  ],
-  "client": [
-    "build.HandledScreenMixin",
-    "build.ScreenHandlerMixin",
-    "build.MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1

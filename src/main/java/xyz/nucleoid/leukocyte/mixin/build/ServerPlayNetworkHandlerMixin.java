@@ -3,6 +3,7 @@ package xyz.nucleoid.leukocyte.mixin.build;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
@@ -63,19 +64,64 @@ public class ServerPlayNetworkHandlerMixin {
             this.player.sendMessage(
                 net.minecraft.text.Text.literal("§c'" + itemId + "' is blocked in build mode!"), true);
             ci.cancel();
+            leukocyte$clearSlot(slot);
             leukocyte$resyncCursor();
         }
+    }
+
+    @Inject(method = "onClickSlot", at = @At("HEAD"), cancellable = true)
+    private void onClickSlot(ClickSlotC2SPacket packet, CallbackInfo ci) {
+        if (!BuildModeManager.isInBuildMode(this.player.getUuid())) return;
+
+        var server = this.player.getServer();
+        if (server == null) return;
+        var build = LeukocyteBuild.get(server.getOverworld());
+        var blocked = build.getGlobalBlockedItems();
+        if (blocked.isEmpty()) return;
+
+        var handler = this.player.currentScreenHandler;
+        int slotId = packet.getSlot();
+        if (slotId < 0) return;
+
+        var slot = handler.getSlot(slotId);
+        if (slot != null && slot.hasStack()) {
+            String itemId = Registries.ITEM.getId(slot.getStack().getItem()).toString();
+            if (blocked.contains(itemId)) {
+                this.player.sendMessage(
+                    net.minecraft.text.Text.literal("§c'" + itemId + "' is blocked in build mode!"), true);
+                ci.cancel();
+                slot.setStack(ItemStack.EMPTY);
+                leukocyte$resyncCursor();
+            }
+        }
+    }
+
+    @Unique
+    private void leukocyte$clearSlot(int slot) {
+        var handler = this.player.currentScreenHandler;
+        var slotObj = handler.getSlot(slot);
+        if (slotObj != null) {
+            slotObj.setStack(ItemStack.EMPTY);
+        }
+        this.player.networkHandler.sendPacket(
+            new ScreenHandlerSlotUpdateS2CPacket(
+                handler.syncId,
+                handler.getRevision(),
+                slot,
+                ItemStack.EMPTY)
+        );
     }
 
     @Unique
     private void leukocyte$resyncCursor() {
         var handler = this.player.currentScreenHandler;
+        handler.setCursorStack(ItemStack.EMPTY);
         this.player.networkHandler.sendPacket(
             new ScreenHandlerSlotUpdateS2CPacket(
                 handler.syncId,
                 handler.getRevision(),
                 -1,
-                handler.getCursorStack())
+                ItemStack.EMPTY)
         );
     }
 }

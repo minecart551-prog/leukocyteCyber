@@ -50,6 +50,17 @@ jar {
   from("LICENSE") {
     rename { "${it}_${project.archivesBaseName}" }
   }
+  manifest {
+    attributes(
+      "Implementation-Title": "Leukocyte",
+      "Implementation-Version": project.version,
+      "Implementation-Vendor": "Nucleoid Contributors",
+      "Implementation-URL": "https://github.com/minecart551-prog/leukocyteCyber",
+      "Built-By": "Fabric Loom",
+      "Created-By": "Java ${System.getProperty('java.version')}",
+      "Module-Name": "xyz.nucleoid.leukocyte"
+    )
+  }
 }
 
 if (System.getenv("MODRINTH")) {

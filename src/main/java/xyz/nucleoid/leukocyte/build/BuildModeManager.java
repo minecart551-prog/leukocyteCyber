@@ -37,13 +37,30 @@ public final class BuildModeManager {
 
     private static void onServerTick(MinecraftServer server) {
         tickCounter++;
-        if (tickCounter % 60 != 0) return;
+        if (tickCounter % 20 != 0) return;
+
+        var overworld = server.getOverworld();
+        var build = LeukocyteBuild.get(overworld);
+        var blocked = build.getGlobalBlockedItems();
 
         for (var entry : activeBuilders.entrySet()) {
             var player = server.getPlayerManager().getPlayer(entry.getKey());
             var builder = entry.getValue();
 
             if (player == null) continue;
+
+            if (!blocked.isEmpty()) {
+                var inventory = player.getInventory();
+                for (int i = 0; i < inventory.size(); i++) {
+                    var stack = inventory.getStack(i);
+                    if (!stack.isEmpty()) {
+                        String itemId = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).toString();
+                        if (blocked.contains(itemId)) {
+                            inventory.setStack(i, net.minecraft.item.ItemStack.EMPTY);
+                        }
+                    }
+                }
+            }
 
             var currentWorld = player.getWorld().getRegistryKey();
             var expectedWorld = builder.buildArea().dimension();
