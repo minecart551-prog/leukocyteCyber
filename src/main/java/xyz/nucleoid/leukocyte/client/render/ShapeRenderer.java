@@ -121,6 +121,12 @@ public class ShapeRenderer {
                 renderBoxAsFilledQuads(ctx, a.getX(), a.getY(), a.getZ(),
                     a.getX() + 1, a.getY() + 1, a.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
             }
+        } else if (state.getPreviewPos() != null) {
+            BlockPos preview = state.getPreviewPos();
+            renderWireframeBox(ctx, preview.getX(), preview.getY(), preview.getZ(),
+                preview.getX() + 1, preview.getY() + 1, preview.getZ() + 1, FILL_SELECTED, 200);
+            renderBoxAsFilledQuads(ctx, preview.getX(), preview.getY(), preview.getZ(),
+                preview.getX() + 1, preview.getY() + 1, preview.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
         }
     }
 
@@ -198,6 +204,12 @@ public class ShapeRenderer {
                 renderBoxAsFilledQuads(ctx, a.getX(), a.getY(), a.getZ(),
                     a.getX() + 1, a.getY() + 1, a.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
             }
+        } else if (state.getPreviewPos() != null) {
+            BlockPos preview = state.getPreviewPos();
+            renderWireframeBox(ctx, preview.getX(), preview.getY(), preview.getZ(),
+                preview.getX() + 1, preview.getY() + 1, preview.getZ() + 1, FILL_SELECTED, 200);
+            renderBoxAsFilledQuads(ctx, preview.getX(), preview.getY(), preview.getZ(),
+                preview.getX() + 1, preview.getY() + 1, preview.getZ() + 1, FILL_SELECTED, SELECTED_ALPHA);
         }
     }
 

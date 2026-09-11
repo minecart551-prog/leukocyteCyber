@@ -7,9 +7,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 import xyz.nucleoid.leukocyte.client.network.ClientBuildPacketHandler;
 import xyz.nucleoid.leukocyte.client.render.ShapeRenderer;
@@ -65,18 +64,16 @@ public final class BuildAreaToolHandler {
         }
         lastMiddleClickPressed = middleClickPressed;
 
-        if (state.isPlacingCorners()) {
-            BlockPos cursor = getTargetPos(mc);
-            BlockPos prev = state.getPreviewPos();
-            if (cursor != null) {
-                if (!cursor.equals(prev)) {
-                    state.setPreviewPos(cursor);
-                    ShapeRenderer.getInstance().markNeedsRebuild();
-                }
-            } else if (prev != null) {
-                state.setPreviewPos(null);
+        BlockPos cursor = getTargetPos(mc);
+        BlockPos prev = state.getPreviewPos();
+        if (cursor != null) {
+            if (!cursor.equals(prev)) {
+                state.setPreviewPos(cursor);
                 ShapeRenderer.getInstance().markNeedsRebuild();
             }
+        } else if (prev != null) {
+            state.setPreviewPos(null);
+            ShapeRenderer.getInstance().markNeedsRebuild();
         }
 
         BuildAreaToolState.Mode mode = state.getMode();
@@ -112,6 +109,9 @@ public final class BuildAreaToolHandler {
             areaInfo = " | Area: " + area.name();
         }
 
+        BlockPos target = getTargetPos(mc);
+        String targetInfo = target != null ? " | Y: " + target.getY() : "";
+
         String modeInfo = switch (mode) {
             case IDLE -> "LClick: Create new | Middle: Menu";
             case SELECTED -> "LClick: Add box | RClick: Subtract | Middle: Menu";
@@ -123,12 +123,15 @@ public final class BuildAreaToolHandler {
             case SUB_CORNER_2 -> "Right-click second corner to subtract";
         };
 
-        mc.player.sendMessage(Text.of("§e§l[Build Tool] §r§7Area: §f" + (area != null ? area.name() : "None") + areaInfo + " §7| " + modeInfo), true);
+        mc.player.sendMessage(Text.of("§e§l[Build Tool] §r§7Area: §f" + (area != null ? area.name() : "None") + areaInfo + targetInfo + " §7| " + modeInfo), true);
     }
 
     private static BlockPos getTargetPos(MinecraftClient mc) {
-        if (mc.crosshairTarget == null || mc.crosshairTarget.getType() != HitResult.Type.BLOCK) return null;
-        return ((BlockHitResult) mc.crosshairTarget).getBlockPos();
+        if (mc.player == null) return null;
+        Vec3d eyePos = mc.player.getEyePos();
+        Vec3d lookVec = mc.player.getRotationVec(1.0F);
+        Vec3d target = eyePos.add(lookVec.multiply(3.0));
+        return BlockPos.ofFloored(target.x, target.y, target.z);
     }
 
     private static void handleLeftClick(MinecraftClient mc, BuildAreaToolState state, BuildAreaToolState.Mode mode) {
