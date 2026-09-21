@@ -1,7 +1,8 @@
 package xyz.nucleoid.leukocyte.mixin.build;
 
-import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.screen.NamedScreenHandlerFactory;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.StonecutterScreenHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,6 +20,12 @@ public class ServerPlayerEntityOpenScreenMixin {
         if (!BuildModeManager.isInBuildMode(self.getUuid())) return;
 
         if (factory instanceof PlayerScreenHandler) return;
+
+        try {
+            net.minecraft.screen.ScreenHandler menu = factory.createMenu(0, self.getInventory(), self);
+            if (menu instanceof StonecutterScreenHandler) return;
+        } catch (Exception ignored) {
+        }
 
         self.sendMessage(
             net.minecraft.text.Text.literal("§cYou cannot open containers in build mode!"), true);

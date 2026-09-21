@@ -68,6 +68,7 @@ public final class LeukocyteInitializer implements ModInitializer {
             if (!BuildModeManager.isInBuildMode(player.getUuid())
                 && !player.hasPermissionLevel(4)
                 && isInsideAnyBuildArea(world.getRegistryKey(), pos)) {
+                if (isGraveBlock(world, pos)) return ActionResult.PASS;
                 player.sendMessage(Text.literal("§cYou must be in build mode to modify blocks here!"), true);
                 return ActionResult.FAIL;
             }
@@ -83,6 +84,7 @@ public final class LeukocyteInitializer implements ModInitializer {
             if (!BuildModeManager.isInBuildMode(player.getUuid())
                 && !player.hasPermissionLevel(4)
                 && isInsideAnyBuildArea(world.getRegistryKey(), pos)) {
+                if (isGraveBlock(world, pos)) return true;
                 player.sendMessage(Text.literal("§cYou must be in build mode to modify blocks here!"), true);
                 return false;
             }
@@ -94,6 +96,7 @@ public final class LeukocyteInitializer implements ModInitializer {
                 if (!player.hasPermissionLevel(4) && hitResult.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
                     var clickedPos = hitResult.getBlockPos();
                     if (isInsideAnyBuildArea(world.getRegistryKey(), clickedPos)) {
+                        if (isGraveBlock(world, clickedPos)) return ActionResult.PASS;
                         player.sendMessage(Text.literal("§cYou must be in build mode to modify blocks here!"), true);
                         return ActionResult.FAIL;
                     }
@@ -147,5 +150,11 @@ public final class LeukocyteInitializer implements ModInitializer {
             }
         }
         return false;
+    }
+
+    private static boolean isGraveBlock(net.minecraft.world.WorldView world, net.minecraft.util.math.BlockPos pos) {
+        var block = world.getBlockState(pos).getBlock();
+        var id = net.minecraft.registry.Registries.BLOCK.getId(block);
+        return id.getNamespace().equals("universal_graves");
     }
 }
