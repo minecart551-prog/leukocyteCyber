@@ -96,9 +96,14 @@ public final class LeukocyteInitializer implements ModInitializer {
                 if (!player.hasPermissionLevel(4) && hitResult.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
                     var clickedPos = hitResult.getBlockPos();
                     if (isInsideAnyBuildArea(world.getRegistryKey(), clickedPos)) {
-                        if (isGraveBlock(world, clickedPos)) return ActionResult.PASS;
-                        player.sendMessage(Text.literal("§cYou must be in build mode to modify blocks here!"), true);
-                        return ActionResult.FAIL;
+                        var heldItem = player.getStackInHand(hand);
+                        if (heldItem.getItem() instanceof net.minecraft.item.BlockItem) {
+                            var placementPos = clickedPos.offset(hitResult.getSide());
+                            if (isInsideAnyBuildArea(world.getRegistryKey(), placementPos)) {
+                                player.sendMessage(Text.literal("§cYou must be in build mode to modify blocks here!"), true);
+                                return ActionResult.FAIL;
+                            }
+                        }
                     }
                 }
                 return ActionResult.PASS;
@@ -126,6 +131,7 @@ public final class LeukocyteInitializer implements ModInitializer {
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (BuildModeManager.isInBuildMode(player.getUuid())) {
+                if (isImmersivePaintingEntity(entity)) return ActionResult.PASS;
                 player.sendMessage(Text.literal("§cYou cannot attack while in build mode!"), true);
                 return ActionResult.FAIL;
             }
@@ -134,6 +140,7 @@ public final class LeukocyteInitializer implements ModInitializer {
 
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (BuildModeManager.isInBuildMode(player.getUuid())) {
+                if (isImmersivePaintingEntity(entity)) return ActionResult.PASS;
                 player.sendMessage(Text.literal("§cYou cannot interact with entities in build mode!"), true);
                 return ActionResult.FAIL;
             }
@@ -156,5 +163,10 @@ public final class LeukocyteInitializer implements ModInitializer {
         var block = world.getBlockState(pos).getBlock();
         var id = net.minecraft.registry.Registries.BLOCK.getId(block);
         return id.getNamespace().equals("universal_graves");
+    }
+
+    private static boolean isImmersivePaintingEntity(net.minecraft.entity.Entity entity) {
+        var id = net.minecraft.registry.Registries.ENTITY_TYPE.getId(entity.getType());
+        return id.getNamespace().equals("immersive_paintings");
     }
 }
