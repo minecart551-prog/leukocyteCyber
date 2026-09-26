@@ -58,7 +58,7 @@ public final class BuildCommand {
             return 0;
         }
 
-        BuildModeManager.enterBuildMode(player, area);
+        BuildModeManager.verifyAndEnter(player, area);
         return Command.SINGLE_SUCCESS;
     }
 

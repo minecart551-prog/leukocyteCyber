@@ -81,6 +81,14 @@ public EventFilter applyToFilter(EventFilter filter) {
         return new Authority(this.key, this.level, newShapes, this.rules, this.exclusions.copy(), this.included.copy());
     }
 
+    public Authority withShapeEnabled(String name, boolean enabled) {
+        var newShapes = this.shapes.withShapeEnabled(name, enabled);
+        if (this.shapes == newShapes) {
+            return this;
+        }
+        return new Authority(this.key, this.level, newShapes, this.rules, this.exclusions.copy(), this.included.copy());
+    }
+
     public Authority removeShape(String name) {
         var newShapes = this.shapes.removeShape(name);
         if (this.shapes == newShapes) {

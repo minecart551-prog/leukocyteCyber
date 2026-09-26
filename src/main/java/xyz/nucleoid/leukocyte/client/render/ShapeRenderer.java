@@ -175,13 +175,19 @@ public class ShapeRenderer {
                 color = new Color(packed, true);
             }
 
+            boolean disabled = !entry.enabled();
+            if (disabled) {
+                color = new Color(0x808080, true);
+                alpha = isSelected ? 40 : 25;
+            }
+
             for (FaceMerger.Face face : FaceMerger.extractAndMergeBoundaryFacesFromBoxes(entry.subBoxes())) {
                 renderFaceAsFilledQuad(ctx, face, color, alpha);
             }
 
             if (isSelected) {
                 renderWireframeBox(ctx, minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1,
-                    new Color(255, 255, 255), 200);
+                    disabled ? new Color(0x777777) : new Color(255, 255, 255), 200);
             }
         }
 

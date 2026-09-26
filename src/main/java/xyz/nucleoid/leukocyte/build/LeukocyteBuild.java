@@ -24,6 +24,7 @@ public final class LeukocyteBuild extends PersistentState {
     private final List<BuildArea> areas = new ArrayList<>();
     private final List<String> globalBlockedItems = new ArrayList<>();
     private final List<String> globalBlockedPlayers = new ArrayList<>();
+    private final List<String> crackedWhitelist = new ArrayList<>();
 
     private LeukocyteBuild() {
     }
@@ -127,6 +128,40 @@ public final class LeukocyteBuild extends PersistentState {
         return false;
     }
 
+    public List<String> getCrackedWhitelist() {
+        return this.crackedWhitelist;
+    }
+
+    public boolean isCrackedWhitelisted(String playerName) {
+        for (String name : this.crackedWhitelist) {
+            if (name.equalsIgnoreCase(playerName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean addCrackedWhitelistedPlayer(String playerName) {
+        if (isCrackedWhitelisted(playerName)) {
+            return false;
+        }
+        this.crackedWhitelist.add(playerName);
+        this.markDirty();
+        return true;
+    }
+
+    public boolean removeCrackedWhitelistedPlayer(String playerName) {
+        var it = this.crackedWhitelist.iterator();
+        while (it.hasNext()) {
+            if (it.next().equalsIgnoreCase(playerName)) {
+                it.remove();
+                this.markDirty();
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public boolean isDirty() {
         return true;
@@ -170,6 +205,12 @@ public final class LeukocyteBuild extends PersistentState {
             blockedPlayers.add(NbtString.of(player));
         }
         root.put("global_blocked_players", blockedPlayers);
+
+        var crackedWl = new NbtList();
+        for (String player : this.crackedWhitelist) {
+            crackedWl.add(NbtString.of(player));
+        }
+        root.put("cracked_whitelist", crackedWl);
 
         return root;
     }
@@ -231,6 +272,11 @@ public final class LeukocyteBuild extends PersistentState {
             seenPlayers.add(blockedPlayers.getString(i));
         }
         build.globalBlockedPlayers.addAll(seenPlayers);
+
+        var crackedWl = root.getList("cracked_whitelist", NbtElement.STRING_TYPE);
+        for (int i = 0; i < crackedWl.size(); i++) {
+            build.crackedWhitelist.add(crackedWl.getString(i));
+        }
 
         return build;
     }

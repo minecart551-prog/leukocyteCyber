@@ -18,6 +18,7 @@ public final class ClientBuildPacketHandler {
     private static Consumer<String> resultCallback;
     private static List<String> globalBlockedItems = new ArrayList<>();
     private static List<String> globalBlockedPlayers = new ArrayList<>();
+    private static List<String> crackedWhitelist = new ArrayList<>();
     private static boolean inBuildMode = false;
 
     public static void register() {
@@ -93,6 +94,12 @@ public final class ClientBuildPacketHandler {
             globalBlockedPlayers.add(blockedPlayersList.getString(i));
         }
 
+        var crackedWlList = data.getList("cracked_whitelist", NbtElement.STRING_TYPE);
+        crackedWhitelist.clear();
+        for (int i = 0; i < crackedWlList.size(); i++) {
+            crackedWhitelist.add(crackedWlList.getString(i));
+        }
+
         xyz.nucleoid.leukocyte.client.render.ShapeRenderer.getInstance().markNeedsRebuild();
     }
 
@@ -113,6 +120,10 @@ public final class ClientBuildPacketHandler {
 
     public static List<String> getGlobalBlockedPlayers() {
         return globalBlockedPlayers;
+    }
+
+    public static List<String> getCrackedWhitelist() {
+        return crackedWhitelist;
     }
 
     public static boolean isInBuildMode() {
@@ -263,6 +274,24 @@ public final class ClientBuildPacketHandler {
     public static void removeBlockedPlayer(String playerName) {
         var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
         buf.writeByte(LeukocyteNetworking.BUILD_ACTION_REMOVE_BLOCKED_PLAYER);
+        var data = new NbtCompound();
+        data.putString("player", playerName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void addCrackedWhitelistedPlayer(String playerName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_ADD_CRACKED_WHITELIST_PLAYER);
+        var data = new NbtCompound();
+        data.putString("player", playerName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.BUILD_C2S_CHANNEL, buf);
+    }
+
+    public static void removeCrackedWhitelistedPlayer(String playerName) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.BUILD_ACTION_REMOVE_CRACKED_WHITELIST_PLAYER);
         var data = new NbtCompound();
         data.putString("player", playerName);
         buf.writeNbt(data);

@@ -49,6 +49,8 @@ public final class ServerBuildPacketHandler {
                     case LeukocyteNetworking.BUILD_ACTION_TOGGLE_WHITELIST -> handleToggleWhitelist(player, build, data);
                     case LeukocyteNetworking.BUILD_ACTION_ADD_BLOCKED_PLAYER -> handleAddBlockedPlayer(player, build, data);
                     case LeukocyteNetworking.BUILD_ACTION_REMOVE_BLOCKED_PLAYER -> handleRemoveBlockedPlayer(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_ADD_CRACKED_WHITELIST_PLAYER -> handleAddCrackedWhitelistedPlayer(player, build, data);
+                    case LeukocyteNetworking.BUILD_ACTION_REMOVE_CRACKED_WHITELIST_PLAYER -> handleRemoveCrackedWhitelistedPlayer(player, build, data);
                 }
             });
         });
@@ -112,6 +114,12 @@ public final class ServerBuildPacketHandler {
             blockedPlayers.add(NbtString.of(bp));
         }
         root.put("global_blocked_players", blockedPlayers);
+
+        var crackedWl = new NbtList();
+        for (String name : build.getCrackedWhitelist()) {
+            crackedWl.add(NbtString.of(name));
+        }
+        root.put("cracked_whitelist", crackedWl);
 
         buf.writeNbt(root);
 
@@ -325,6 +333,28 @@ public final class ServerBuildPacketHandler {
             sendResult(player, true, "Removed '" + playerName + "' from global blocked players.");
         } else {
             sendResult(player, false, "'" + playerName + "' is not in the blocked players list.");
+        }
+    }
+
+    private static void handleAddCrackedWhitelistedPlayer(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String playerName = data.getString("player");
+        if (playerName.isEmpty()) {
+            sendResult(player, false, "Player name cannot be empty.");
+            return;
+        }
+        if (build.addCrackedWhitelistedPlayer(playerName)) {
+            sendResult(player, true, "Added '" + playerName + "' to the cracked whitelist.");
+        } else {
+            sendResult(player, false, "'" + playerName + "' is already whitelisted.");
+        }
+    }
+
+    private static void handleRemoveCrackedWhitelistedPlayer(ServerPlayerEntity player, LeukocyteBuild build, NbtCompound data) {
+        String playerName = data.getString("player");
+        if (build.removeCrackedWhitelistedPlayer(playerName)) {
+            sendResult(player, true, "Removed '" + playerName + "' from the cracked whitelist.");
+        } else {
+            sendResult(player, false, "'" + playerName + "' is not in the cracked whitelist.");
         }
     }
 

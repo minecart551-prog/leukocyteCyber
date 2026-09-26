@@ -159,6 +159,7 @@ public final class ClientPacketHandler {
             }
 
             String key = authority + "\0" + name;
+            boolean enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
             var existing = merged.get(key);
             if (existing != null) {
                 var subBoxes = new ArrayList<>(existing.subBoxes());
@@ -173,13 +174,13 @@ public final class ClientPacketHandler {
                 }
                 merged.put(key, new ShapeToolState.ShapeEntry(authority, name, existing.type(),
                     dimension != null ? dimension : existing.dimension(), newMin, newMax,
-                    existing.subShapeCount() + 1, subBoxes));
+                    existing.subShapeCount() + 1, subBoxes, existing.enabled() && enabled));
             } else {
                 var subBoxes = new ArrayList<int[]>();
                 if (min != null && max != null) {
                     subBoxes.add(new int[]{min.getX(), min.getY(), min.getZ(), max.getX(), max.getY(), max.getZ()});
                 }
-                merged.put(key, new ShapeToolState.ShapeEntry(authority, name, type, dimension, min, max, 0, subBoxes));
+                merged.put(key, new ShapeToolState.ShapeEntry(authority, name, type, dimension, min, max, 0, subBoxes, enabled));
             }
         }
 
@@ -370,6 +371,17 @@ public final class ClientPacketHandler {
         var data = new NbtCompound();
         data.putString("authority", authorityKey);
         data.putString("shape_name", shapeName);
+        buf.writeNbt(data);
+        ClientPlayNetworking.send(LeukocyteNetworking.C2S_CHANNEL, buf);
+    }
+
+    public static void setShapeEnabled(String authorityKey, String shapeName, boolean enabled) {
+        var buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+        buf.writeByte(LeukocyteNetworking.ACTION_SET_SHAPE_ENABLED);
+        var data = new NbtCompound();
+        data.putString("authority", authorityKey);
+        data.putString("shape_name", shapeName);
+        data.putBoolean("enabled", enabled);
         buf.writeNbt(data);
         ClientPlayNetworking.send(LeukocyteNetworking.C2S_CHANNEL, buf);
     }

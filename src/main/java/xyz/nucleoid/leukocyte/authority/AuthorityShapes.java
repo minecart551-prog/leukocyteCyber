@@ -24,11 +24,13 @@ public final class AuthorityShapes {
     public AuthorityShapes(Entry... entries) {
         this.entries = entries;
 
-        var shapes = new ProtectionShape[entries.length];
-        for (int i = 0; i < shapes.length; i++) {
-            shapes[i] = entries[i].shape;
+        var enabledEntries = new java.util.ArrayList<ProtectionShape>();
+        for (Entry entry : entries) {
+            if (entry.enabled) {
+                enabledEntries.add(entry.shape);
+            }
         }
-        this.combinedShape = new UnionShape(shapes);
+        this.combinedShape = new UnionShape(enabledEntries.toArray(new ProtectionShape[0]));
     }
 
     private AuthorityShapes(List<Entry> entries) {
@@ -39,6 +41,17 @@ public final class AuthorityShapes {
         var newShapes = Arrays.copyOf(this.entries, this.entries.length + 1);
         newShapes[newShapes.length - 1] = new Entry(name, shape);
         return new AuthorityShapes(newShapes);
+    }
+
+    public AuthorityShapes withShapeEnabled(String name, boolean enabled) {
+        int index = this.findIndex(name);
+        if (index == -1 || this.entries[index].enabled == enabled) {
+            return this;
+        }
+
+        var newEntries = Arrays.copyOf(this.entries, this.entries.length);
+        newEntries[index] = new Entry(newEntries[index].name, newEntries[index].shape, enabled);
+        return new AuthorityShapes(newEntries);
     }
 
     public AuthorityShapes removeShape(String name) {
@@ -84,6 +97,7 @@ public final class AuthorityShapes {
             text = text.append(Text.literal("  " + entry.name).formatted(Formatting.AQUA))
                     .append(": ")
                     .append(entry.shape.displayShort())
+                    .append(entry.enabled ? "" : " (disabled)")
                     .append("\n");
         }
 
@@ -98,11 +112,16 @@ public final class AuthorityShapes {
         return this.entries.length == 0;
     }
 
-    public record Entry(String name, ProtectionShape shape) {
+    public record Entry(String name, ProtectionShape shape, boolean enabled) {
+        public Entry(String name, ProtectionShape shape) {
+            this(name, shape, true);
+        }
+
         public static final Codec<Entry> CODEC = RecordCodecBuilder.create(instance -> {
             return instance.group(
                     Codec.STRING.fieldOf("name").forGetter(entry -> entry.name),
-                    ProtectionShape.CODEC.fieldOf("shape").forGetter(entry -> entry.shape)
+                    ProtectionShape.CODEC.fieldOf("shape").forGetter(entry -> entry.shape),
+                    Codec.BOOL.optionalFieldOf("enabled", true).forGetter(entry -> entry.enabled)
             ).apply(instance, Entry::new);
         });
     }

@@ -57,6 +57,7 @@ public final class ServerPacketHandler {
                     case LeukocyteNetworking.ACTION_TELEPORT_TO_SHAPE -> handleTeleportToShape(player, leukocyte, data);
                     case LeukocyteNetworking.ACTION_SUBTRACT_BOX -> handleSubtractBox(player, leukocyte, data);
                     case LeukocyteNetworking.ACTION_ADD_BOX_TO_SHAPE -> handleAddBoxToShape(player, leukocyte, data);
+                    case LeukocyteNetworking.ACTION_SET_SHAPE_ENABLED -> handleSetShapeEnabled(player, leukocyte, data);
                 }
             });
         });
@@ -270,6 +271,27 @@ public final class ServerPacketHandler {
         sendResult(player, true, "Removed shape '" + shapeName + "' from '" + key + "'.");
     }
 
+    private static void handleSetShapeEnabled(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data) {
+        String key = data.getString("authority");
+        String shapeName = data.getString("shape_name");
+        boolean enabled = data.getBoolean("enabled");
+
+        var authority = leukocyte.getAuthorityByKey(key);
+        if (authority == null) {
+            sendResult(player, false, "Authority '" + key + "' not found.");
+            return;
+        }
+
+        var newAuthority = authority.withShapeEnabled(shapeName, enabled);
+        if (newAuthority == authority) {
+            sendResult(player, false, "Shape '" + shapeName + "' not found or already " + (enabled ? "enabled" : "disabled") + ".");
+            return;
+        }
+
+        leukocyte.replaceAuthority(authority, newAuthority);
+        sendResult(player, true, (enabled ? "Enabled" : "Disabled") + " shape '" + shapeName + "' in '" + key + "'.");
+    }
+
     private static void handleAddExclusion(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data, boolean isInclusion) {
         String key = data.getString("authority");
         byte type = data.getByte("type");
@@ -390,7 +412,7 @@ public final class ServerPacketHandler {
 
         for (var authority : leukocyte.getAuthorities()) {
             for (var entry : authority.getShapes().entries) {
-                extractBoxShapes(listTag, authority.getKey(), entry.name(), entry.shape(), currentDim);
+                extractBoxShapes(listTag, authority.getKey(), entry.name(), entry.shape(), currentDim, entry.enabled());
             }
         }
 
@@ -408,9 +430,10 @@ public final class ServerPacketHandler {
 
     private static void extractBoxShapes(net.minecraft.nbt.NbtList listTag, String authorityKey, String shapeName,
                                           xyz.nucleoid.leukocyte.shape.ProtectionShape shape,
-                                          net.minecraft.registry.RegistryKey<net.minecraft.world.World> currentDim) {
+                                          net.minecraft.registry.RegistryKey<net.minecraft.world.World> currentDim,
+                                          boolean enabled) {
         if (shape instanceof xyz.nucleoid.leukocyte.shape.BoxShape box) {
-            addBoxEntry(listTag, authorityKey, shapeName, "box", box, currentDim);
+            addBoxEntry(listTag, authorityKey, shapeName, "box", box, currentDim, enabled);
         } else if (shape instanceof xyz.nucleoid.leukocyte.shape.DimensionShape dim) {
             var dimEntry = new NbtCompound();
             dimEntry.putString("authority", authorityKey);
@@ -418,10 +441,11 @@ public final class ServerPacketHandler {
             dimEntry.putString("type", "dimension");
             dimEntry.putString("dimension", dim.getDimension().getValue().toString());
             dimEntry.putBoolean("in_current_dim", dim.getDimension().equals(currentDim));
+            dimEntry.putBoolean("enabled", enabled);
             listTag.add(dimEntry);
         } else if (shape instanceof xyz.nucleoid.leukocyte.shape.UnionShape union) {
             for (var sub : union.getScopes()) {
-                extractBoxShapes(listTag, authorityKey, shapeName, sub, currentDim);
+                extractBoxShapes(listTag, authorityKey, shapeName, sub, currentDim, enabled);
             }
         } else if (shape instanceof xyz.nucleoid.leukocyte.shape.UniversalShape) {
             var uniEntry = new NbtCompound();
@@ -429,19 +453,22 @@ public final class ServerPacketHandler {
             uniEntry.putString("name", shapeName);
             uniEntry.putString("type", "universal");
             uniEntry.putBoolean("in_current_dim", true);
+            uniEntry.putBoolean("enabled", enabled);
             listTag.add(uniEntry);
         }
     }
 
     private static void addBoxEntry(net.minecraft.nbt.NbtList listTag, String authorityKey, String shapeName,
                                      String type, xyz.nucleoid.leukocyte.shape.BoxShape box,
-                                     net.minecraft.registry.RegistryKey<net.minecraft.world.World> currentDim) {
+                                     net.minecraft.registry.RegistryKey<net.minecraft.world.World> currentDim,
+                                     boolean enabled) {
         var entry = new NbtCompound();
         entry.putString("authority", authorityKey);
         entry.putString("name", shapeName);
         entry.putString("type", type);
         entry.putString("dimension", box.getDimension().getValue().toString());
         entry.putBoolean("in_current_dim", box.getDimension().equals(currentDim));
+        entry.putBoolean("enabled", enabled);
         var min = box.getMin();
         var max = box.getMax();
         entry.putInt("min_x", min.getX());

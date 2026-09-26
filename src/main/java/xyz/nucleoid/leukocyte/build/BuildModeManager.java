@@ -77,25 +77,47 @@ public final class BuildModeManager {
         }
     }
 
-    public static boolean enterBuildMode(ServerPlayerEntity player, BuildArea area) {
+    public static void verifyAndEnter(ServerPlayerEntity player, BuildArea area) {
         if (activeBuilders.containsKey(player.getUuid())) {
             player.sendMessage(Text.literal("§cYou are already in build mode!"), false);
-            return false;
+            return;
         }
 
-        var build = LeukocyteBuild.get(player.getServer().getOverworld());
+        var server = player.getServer();
+        var build = LeukocyteBuild.get(server.getOverworld());
         String playerName = player.getName().getString();
 
         if (build.getGlobalBlockedPlayers().contains(playerName)) {
             player.sendMessage(Text.literal("§cYou are blocked from using build mode!"), false);
-            return false;
+            return;
         }
 
         if (area.whitelistEnabled() && !area.whitelist().contains(playerName)) {
             player.sendMessage(Text.literal("§cYou are not in the whitelist for this build area!"), false);
-            return false;
+            return;
         }
 
+        if (player.hasPermissionLevel(4) || build.isCrackedWhitelisted(playerName)) {
+            enterBuildModeVerified(player, area);
+            return;
+        }
+
+        var uuid = player.getUuid();
+        AccountVerifier.verify(playerName).thenAccept(result -> server.execute(() -> {
+            var online = server.getPlayerManager().getPlayer(uuid);
+            if (online == null) return;
+            if (activeBuilders.containsKey(uuid)) return;
+
+            switch (result) {
+                case OFFICIAL -> enterBuildModeVerified(online, area);
+                case CRACKED -> online.sendMessage(Text.literal("§cYou are not whitelisted"), false);
+                case UNKNOWN -> online.sendMessage(
+                    Text.literal("§cCould not verify your account with Mojang. Please try again."), false);
+            }
+        }));
+    }
+
+    private static boolean enterBuildModeVerified(ServerPlayerEntity player, BuildArea area) {
         var returnPos = player.getBlockPos().mutableCopy();
         var returnWorld = player.getWorld().getRegistryKey();
         var savedGameMode = player.interactionManager.getGameMode();
@@ -177,6 +199,33 @@ public final class BuildModeManager {
         var saved = state.getBuilder(player.getUuid());
         if (saved == null) return;
 
+        var server = player.getServer();
+        var uuid = player.getUuid();
+        var build = LeukocyteBuild.get(overworld);
+        String playerName = player.getName().getString();
+
+        if (player.hasPermissionLevel(4) || build.isCrackedWhitelisted(playerName)) {
+            restoreBuilder(player, saved);
+            return;
+        }
+
+        AccountVerifier.verify(playerName).thenAccept(result -> server.execute(() -> {
+            var online = server.getPlayerManager().getPlayer(uuid);
+            if (online == null) return;
+
+            switch (result) {
+                case OFFICIAL -> restoreBuilder(online, saved);
+                case CRACKED -> {
+                    state.removeBuilder(uuid);
+                    online.sendMessage(Text.literal("§cYou are not whitelisted"), false);
+                }
+                case UNKNOWN -> online.sendMessage(
+                    Text.literal("§cCould not verify your account with Mojang. Use /build to retry."), false);
+            }
+        }));
+    }
+
+    private static void restoreBuilder(ServerPlayerEntity player, BuildModeState.SavedBuilder saved) {
         var builder = new ActiveBuilder(
             saved.uuid(),
             saved.buildArea(),

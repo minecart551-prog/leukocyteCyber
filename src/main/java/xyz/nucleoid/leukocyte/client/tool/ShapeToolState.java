@@ -238,5 +238,10 @@ public final class ShapeToolState {
 
     public record ShapeEntry(String authority, String name, String type, RegistryKey<World> dimension,
                              BlockPos min, BlockPos max, int subShapeCount,
-                             List<int[]> subBoxes) {}
+                             List<int[]> subBoxes, boolean enabled) {
+        public ShapeEntry(String authority, String name, String type, RegistryKey<World> dimension,
+                          BlockPos min, BlockPos max, int subShapeCount, List<int[]> subBoxes) {
+            this(authority, name, type, dimension, min, max, subShapeCount, subBoxes, true);
+        }
+    }
 }

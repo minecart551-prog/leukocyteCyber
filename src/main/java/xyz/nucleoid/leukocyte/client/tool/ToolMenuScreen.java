@@ -75,11 +75,18 @@ public final class ToolMenuScreen extends Screen {
 
             btnY += BTN_H + BTN_GAP;
 
+            addDrawableChild(ButtonWidget.builder(Text.literal(shape.enabled() ? "Disable" : "Enable"), button -> {
+                boolean newValue = !shape.enabled();
+                ClientPacketHandler.setShapeEnabled(shape.authority(), shape.name(), newValue);
+                applyLocalEnabled(shape, newValue);
+                client.setScreen(new ToolMenuScreen());
+            }).dimensions(col1, btnY, btnW, BTN_H).build());
+
             addDrawableChild(ButtonWidget.builder(Text.literal("Deselect"), button -> {
                 state.reset();
                 ShapeRenderer.getInstance().markNeedsRebuild();
                 client.setScreen(null);
-            }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
+            }).dimensions(col2, btnY, btnW, BTN_H).build());
 
             btnY += BTN_H + BTN_GAP;
         } else {
@@ -97,6 +104,20 @@ public final class ToolMenuScreen extends Screen {
         }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
 
         updateShapeFilter("");
+    }
+
+    private void applyLocalEnabled(ShapeToolState.ShapeEntry shape, boolean enabled) {
+        var entries = new ArrayList<>(state.getShapeEntries());
+        int idx = entries.indexOf(shape);
+        if (idx == -1) {
+            return;
+        }
+
+        var old = entries.get(idx);
+        entries.set(idx, new ShapeToolState.ShapeEntry(old.authority(), old.name(), old.type(),
+            old.dimension(), old.min(), old.max(), old.subShapeCount(), old.subBoxes(), enabled));
+        state.setShapeEntries(entries);
+        ShapeRenderer.getInstance().markNeedsRebuild();
     }
 
     private int getButtonAreaHeight() {
@@ -176,14 +197,20 @@ public final class ToolMenuScreen extends Screen {
             boolean isSelected = entry == state.getSelectedShape();
 
             int bg = isSelected ? 0xFF226644 : (hovering ? 0xFF335577 : 0xFF222222);
+            if (!entry.enabled()) {
+                bg = isSelected ? 0xFF2A2A2A : (hovering ? 0xFF333333 : 0xFF1A1A1A);
+            }
             context.fill(rightX, ey, rightX + rightW, ey + shapeEntryH - 1, bg);
 
             int textColor = isSelected ? 0xFF55FF55 : (hovering ? 0xFFFFFF55 : 0xFFFFFF);
+            if (!entry.enabled()) {
+                textColor = isSelected ? 0xFF666666 : (hovering ? 0xFF777777 : 0xFF555555);
+            }
             int textMaxW = rightW - delBtnW - 6;
             String name = textRenderer.trimToWidth(entry.name(), textMaxW);
             context.drawTextWithShadow(textRenderer, name, rightX + 4, ey + 3, textColor);
-            context.drawTextWithShadow(textRenderer, entry.type(),
-                rightX + 4, ey + 12, 0x888888);
+            context.drawTextWithShadow(textRenderer, entry.enabled() ? entry.type() : entry.type() + " (off)",
+                rightX + 4, ey + 12, entry.enabled() ? 0x888888 : 0x555555);
 
             int delBg = hoveringDel ? 0xFFCC3333 : 0xFF552222;
             context.fill(rightX + rightW - delBtnW, ey, rightX + rightW, ey + shapeEntryH - 1, delBg);

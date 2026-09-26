@@ -89,6 +89,12 @@ public final class BuildAreaMenuScreen extends Screen {
 
             btnY -= BTN_H + BTN_GAP;
 
+            addDrawableChild(ButtonWidget.builder(Text.literal("Cracked Whitelist"), button -> {
+                client.setScreen(new CrackedWhitelistScreen());
+            }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
+
+            btnY -= BTN_H + BTN_GAP;
+
             addDrawableChild(ButtonWidget.builder(Text.literal("Close"), button -> {
                 client.setScreen(null);
             }).dimensions(width / 2 - btnW / 2, btnY, btnW, BTN_H).build());
@@ -116,8 +122,7 @@ public final class BuildAreaMenuScreen extends Screen {
         renderBackground(context);
 
         int listTop = HEADER_H;
-        boolean isEditing = state.isEditingArea();
-        int bottomButtons = isEditing ? 4 : 3;
+        int bottomButtons = 4;
         int btnBlockH = bottomButtons * BTN_H + (bottomButtons - 1) * BTN_GAP + BTN_H + BTN_GAP;
         int listBottom = height - BOTTOM_MARGIN - btnBlockH - 4;
         int visible = Math.max(0, Math.min(filteredAreas.size(), (listBottom - listTop) / ENTRY_H));
@@ -173,8 +178,7 @@ public final class BuildAreaMenuScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         int listTop = HEADER_H;
-        boolean isEditing = state.isEditingArea();
-        int bottomButtons = isEditing ? 4 : 3;
+        int bottomButtons = 4;
         int btnBlockH = bottomButtons * BTN_H + (bottomButtons - 1) * BTN_GAP + BTN_H + BTN_GAP;
         int listBottom = height - BOTTOM_MARGIN - btnBlockH - 4;
         int visible = Math.max(0, Math.min(filteredAreas.size(), (listBottom - listTop) / ENTRY_H));
@@ -188,8 +192,7 @@ public final class BuildAreaMenuScreen extends Screen {
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
 
         int listTop = HEADER_H;
-        boolean isEditing = state.isEditingArea();
-        int bottomButtons = isEditing ? 4 : 3;
+        int bottomButtons = 4;
         int btnBlockH = bottomButtons * BTN_H + (bottomButtons - 1) * BTN_GAP + BTN_H + BTN_GAP;
         int listBottom = height - BOTTOM_MARGIN - btnBlockH - 4;
         int visible = Math.max(0, Math.min(filteredAreas.size(), (listBottom - listTop) / ENTRY_H));
