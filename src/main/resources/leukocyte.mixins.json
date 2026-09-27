@@ -7,7 +7,8 @@
     "shape.ServerPlayerEntityMixin",
     "build.ServerPlayNetworkHandlerMixin",
     "build.ServerPlayerEntityOpenScreenMixin",
-    "build.ItemEntityMixin"
+    "build.ItemEntityMixin",
+    "container.ScreenHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
