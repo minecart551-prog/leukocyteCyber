@@ -185,17 +185,26 @@ public final class LeukocyteInitializer implements ModInitializer {
         return false;
     }
 
-    // True when any authority that applies to this player at this position denies the rule.
-    // getEventFilter().accepts() already enforces shape containment, op bypass, inclusions and exclusions.
+    // True when the rules that actually apply to this player at this position deny the rule.
+    // getEventFilter().accepts() already enforces shape containment, op bypass, build-mode
+    // bypass, inclusions and exclusions.
+    //
+    // Authority conflicts are resolved exactly like leukocyte's own enforcement: authorities
+    // iterate highest-level first (AuthoritySortedHashMap/Authority.compareTo) and the first
+    // non-PASS result decides — matching LeukocyteRuleEnforcer and the stimuli invoker's
+    // "first non-PASS wins" loop. So a higher-level authority with break/place = allow
+    // overrides a lower authority's deny, and break stays usable there.
     private static boolean isRuleDenied(MinecraftServer server, PlayerEntity player, BlockPos pos, ProtectionRule rule) {
         // Level-4 admins bypass all protection, exactly like the rest of leukocyte.
         if (player.hasPermissionLevel(4)) return false;
         var leukocyte = Leukocyte.get(server);
         var source = EventSource.forEntityAt(player, pos);
         for (var authority : leukocyte.getAuthorities()) {
-            if (authority.getEventFilter().accepts(source)
-                    && authority.getRules().test(rule) == RuleResult.DENY) {
-                return true;
+            if (authority.getEventFilter().accepts(source)) {
+                var result = authority.getRules().test(rule);
+                if (result != RuleResult.PASS) {
+                    return result == RuleResult.DENY;
+                }
             }
         }
         return false;
