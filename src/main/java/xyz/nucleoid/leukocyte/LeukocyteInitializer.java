@@ -10,8 +10,14 @@ import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
 import xyz.nucleoid.leukocyte.build.BuildModeManager;
 import xyz.nucleoid.leukocyte.build.BuildArea;
 import xyz.nucleoid.leukocyte.build.LeukocyteBuild;
@@ -21,8 +27,11 @@ import xyz.nucleoid.leukocyte.command.ShapeCommand;
 import xyz.nucleoid.leukocyte.item.ToolItems;
 import xyz.nucleoid.leukocyte.network.ServerBuildPacketHandler;
 import xyz.nucleoid.leukocyte.network.ServerPacketHandler;
+import xyz.nucleoid.leukocyte.rule.ProtectionRule;
+import xyz.nucleoid.leukocyte.rule.RuleResult;
 import xyz.nucleoid.leukocyte.rule.enforcer.LeukocyteRuleEnforcer;
 import xyz.nucleoid.leukocyte.shape.*;
+import xyz.nucleoid.stimuli.EventSource;
 import xyz.nucleoid.stimuli.Stimuli;
 
 public final class LeukocyteInitializer implements ModInitializer {
@@ -92,6 +101,20 @@ public final class LeukocyteInitializer implements ModInitializer {
         });
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+            // Block the Yuushya modelling tools (Gourd of Entitilization / GUI tool), which place or
+            // modify show blocks, wherever break or place is denied — instead of only interact_blocks.
+            if (hand == Hand.MAIN_HAND
+                    && hitResult.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK
+                    && world instanceof ServerWorld) {
+                var server = world.getServer();
+                if (server != null && isBlockedModellingTool(player.getStackInHand(hand))) {
+                    BlockPos clickedPos = hitResult.getBlockPos();
+                    if (isRuleDenied(server, player, clickedPos, ProtectionRule.BREAK)
+                            || isRuleDenied(server, player, clickedPos, ProtectionRule.PLACE)) {
+                        return ActionResult.FAIL;
+                    }
+                }
+            }
             if (!BuildModeManager.isInBuildMode(player.getUuid())) {
                 if (!player.hasPermissionLevel(4) && hitResult.getType() == net.minecraft.util.hit.HitResult.Type.BLOCK) {
                     var clickedPos = hitResult.getBlockPos();
@@ -146,6 +169,36 @@ public final class LeukocyteInitializer implements ModInitializer {
             }
             return ActionResult.PASS;
         });
+    }
+
+    // Yuushya modelling tools that place/modify show blocks. Identified by registry id so leukocyte
+    // needs no hard dependency on the modelling mod (unknown ids simply never match).
+    private static final String[] BLOCKED_MODELLING_TOOLS = {"get_showblock_item", "gui_item"};
+
+    private static boolean isBlockedModellingTool(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        var id = Registries.ITEM.getId(stack.getItem());
+        if (!"yuushya".equals(id.getNamespace())) return false;
+        for (var path : BLOCKED_MODELLING_TOOLS) {
+            if (path.equals(id.getPath())) return true;
+        }
+        return false;
+    }
+
+    // True when any authority that applies to this player at this position denies the rule.
+    // getEventFilter().accepts() already enforces shape containment, op bypass, inclusions and exclusions.
+    private static boolean isRuleDenied(MinecraftServer server, PlayerEntity player, BlockPos pos, ProtectionRule rule) {
+        // Level-4 admins bypass all protection, exactly like the rest of leukocyte.
+        if (player.hasPermissionLevel(4)) return false;
+        var leukocyte = Leukocyte.get(server);
+        var source = EventSource.forEntityAt(player, pos);
+        for (var authority : leukocyte.getAuthorities()) {
+            if (authority.getEventFilter().accepts(source)
+                    && authority.getRules().test(rule) == RuleResult.DENY) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isInsideAnyBuildArea(net.minecraft.registry.RegistryKey<net.minecraft.world.World> dimension, net.minecraft.util.math.BlockPos pos) {

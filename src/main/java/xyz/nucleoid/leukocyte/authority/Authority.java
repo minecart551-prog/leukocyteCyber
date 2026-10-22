@@ -50,6 +50,10 @@ public EventFilter applyToFilter(EventFilter filter) {
             if (entity instanceof PlayerEntity player) {
                 // Player-specific checks
                 if (player.hasPermissionLevel(4)) return false;
+                // Active builders bypass all protection rules regardless of the
+                // configured exclusion list. Build mode is tracked separately in
+                // BuildModeManager, so this never mutates the admin's exclusion data.
+                if (xyz.nucleoid.leukocyte.build.BuildModeManager.isInBuildMode(player.getUuid())) return false;
                 if (!this.included.isEmpty())
                     return (this.included.isIncluded(player));
                 return !(this.exclusions.isExcluded(player));

@@ -11,7 +11,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
-import xyz.nucleoid.leukocyte.Leukocyte;
 
 import java.util.*;
 
@@ -24,14 +23,19 @@ public final class BuildModeManager {
         BuildArea buildArea,
         BlockPos returnPos,
         RegistryKey<World> returnWorld,
-        GameMode savedGameMode,
-        List<String> excludedAuthorityKeys
+        GameMode savedGameMode
     ) {}
 
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(BuildModeManager::onServerTick);
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             BuildModeManager.onPlayerJoin(handler.player);
+        });
+        // Drop the in-memory builder when a player disconnects. Their session stays
+        // persisted in BuildModeState and is restored on rejoin, but the live registry
+        // must only hold online players so isInBuildMode() stays accurate.
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            activeBuilders.remove(handler.player.getUuid());
         });
     }
 
@@ -122,15 +126,7 @@ public final class BuildModeManager {
         var returnWorld = player.getWorld().getRegistryKey();
         var savedGameMode = player.interactionManager.getGameMode();
 
-        var excludedKeys = new ArrayList<String>();
-        var leukocyte = Leukocyte.get(player.getServer());
-        for (var authority : leukocyte.getAuthorities()) {
-            if (authority.getExclusions().addPlayerByUUID(player.getUuid())) {
-                excludedKeys.add(authority.getKey());
-            }
-        }
-
-        var builder = new ActiveBuilder(player.getUuid(), area, returnPos, returnWorld, savedGameMode, excludedKeys);
+        var builder = new ActiveBuilder(player.getUuid(), area, returnPos, returnWorld, savedGameMode);
         activeBuilders.put(player.getUuid(), builder);
 
         saveBuilder(player.getServer(), builder);
@@ -166,14 +162,6 @@ public final class BuildModeManager {
 
         var player = server.getPlayerManager().getPlayer(uuid);
         if (player != null) {
-            var leukocyte = Leukocyte.get(server);
-            for (String key : builder.excludedAuthorityKeys()) {
-                var authority = leukocyte.getAuthorityByKey(key);
-                if (authority != null) {
-                    authority.getExclusions().removePlayerByUUID(uuid);
-                }
-            }
-
             player.getInventory().clear();
             player.changeGameMode(builder.savedGameMode());
             xyz.nucleoid.leukocyte.network.ServerBuildPacketHandler.sendBuildModeStatus(player, false);
@@ -231,8 +219,7 @@ public final class BuildModeManager {
             saved.buildArea(),
             saved.returnPos(),
             saved.returnWorld(),
-            saved.savedGameMode(),
-            saved.excludedAuthorityKeys()
+            saved.savedGameMode()
         );
         activeBuilders.put(player.getUuid(), builder);
 

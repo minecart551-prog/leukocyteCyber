@@ -4,7 +4,6 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtInt;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.world.ServerWorld;
@@ -40,8 +39,7 @@ public final class BuildModeState extends PersistentState {
             builder.buildArea(),
             builder.returnPos(),
             builder.returnWorld(),
-            builder.savedGameMode(),
-            builder.excludedAuthorityKeys()
+            builder.savedGameMode()
         ));
         markDirty();
     }
@@ -64,8 +62,7 @@ public final class BuildModeState extends PersistentState {
         BuildArea buildArea,
         BlockPos returnPos,
         RegistryKey<net.minecraft.world.World> returnWorld,
-        GameMode savedGameMode,
-        List<String> excludedAuthorityKeys
+        GameMode savedGameMode
     ) {}
 
     @Override
@@ -100,12 +97,6 @@ public final class BuildModeState extends PersistentState {
 
             tag.putString("return_world", builder.returnWorld().getValue().toString());
             tag.putString("game_mode", builder.savedGameMode().getName());
-
-            var excluded = new NbtList();
-            for (String key : builder.excludedAuthorityKeys()) {
-                excluded.add(NbtString.of(key));
-            }
-            tag.put("excluded_keys", excluded);
 
             list.add(tag);
         }
@@ -149,13 +140,7 @@ public final class BuildModeState extends PersistentState {
 
             GameMode gameMode = GameMode.byId(GameMode.byName(tag.getString("game_mode")).getId());
 
-            var excludedList = tag.getList("excluded_keys", NbtElement.STRING_TYPE);
-            var excludedKeys = new ArrayList<String>();
-            for (int i = 0; i < excludedList.size(); i++) {
-                excludedKeys.add(excludedList.getString(i));
-            }
-
-            state.builders.put(uuid, new SavedBuilder(uuid, area, returnPos, returnWorld, gameMode, excludedKeys));
+            state.builders.put(uuid, new SavedBuilder(uuid, area, returnPos, returnWorld, gameMode));
         }
         return state;
     }

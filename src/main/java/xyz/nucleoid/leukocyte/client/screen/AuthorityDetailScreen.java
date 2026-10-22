@@ -19,6 +19,8 @@ public final class AuthorityDetailScreen extends Screen {
     private int ruleCount = 0;
     private ArrayList<String> exclusionRoles = new ArrayList<>();
     private ArrayList<String> exclusionPerms = new ArrayList<>();
+    private ArrayList<String> exclusionPlayerUuids = new ArrayList<>();
+    private ArrayList<String> exclusionPlayerNames = new ArrayList<>();
     private ArrayList<String> inclusionRoles = new ArrayList<>();
     private ArrayList<String> inclusionPerms = new ArrayList<>();
 
@@ -47,7 +49,7 @@ public final class AuthorityDetailScreen extends Screen {
         }).dimensions(col2, startY, btnWidth, btnHeight).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Exclusions"), button -> {
-            client.setScreen(new ExclusionsScreen(authorityKey, exclusionRoles, exclusionPerms, false));
+            client.setScreen(new ExclusionsScreen(authorityKey, exclusionRoles, exclusionPerms, exclusionPlayerUuids, exclusionPlayerNames, false));
         }).dimensions(col1, startY + btnHeight + gap, btnWidth, btnHeight).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Inclusions"), button -> {
@@ -134,6 +136,8 @@ public final class AuthorityDetailScreen extends Screen {
 
         exclusionRoles.clear();
         exclusionPerms.clear();
+        exclusionPlayerUuids.clear();
+        exclusionPlayerNames.clear();
         if (data.contains("exclusions", NbtElement.COMPOUND_TYPE)) {
             var exc = data.getCompound("exclusions");
             if (exc.contains("roles", NbtElement.LIST_TYPE)) {
@@ -146,6 +150,14 @@ public final class AuthorityDetailScreen extends Screen {
                 var perms = exc.getList("permissions", NbtElement.STRING_TYPE);
                 for (int i = 0; i < perms.size(); i++) {
                     exclusionPerms.add(perms.getString(i));
+                }
+            }
+            if (exc.contains("player_entries", NbtElement.LIST_TYPE)) {
+                var entries = exc.getList("player_entries", NbtElement.COMPOUND_TYPE);
+                for (int i = 0; i < entries.size(); i++) {
+                    var entry = entries.getCompound(i);
+                    exclusionPlayerUuids.add(entry.getString("uuid"));
+                    exclusionPlayerNames.add(entry.getString("name"));
                 }
             }
         }

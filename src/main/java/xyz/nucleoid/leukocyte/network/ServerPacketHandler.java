@@ -7,6 +7,7 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -96,9 +97,70 @@ public final class ServerPacketHandler {
         buf.writeByte(LeukocyteNetworking.RESPONSE_AUTHORITY_DETAIL);
 
         var root = (NbtCompound) Authority.CODEC.encodeStart(NbtOps.INSTANCE, authority).result().orElse(new NbtCompound());
+
+        // The codec stores excluded players as bare UUIDs; resolve each to a username
+        // so the client can display a readable, editable list.
+        augmentExclusionPlayerNames(player.getServer(), root, "exclusions");
+        augmentExclusionPlayerNames(player.getServer(), root, "inclusions");
+
         buf.writeNbt(root);
 
         ServerPlayNetworking.send(player, LeukocyteNetworking.S2C_CHANNEL, buf);
+    }
+
+    // Adds a parallel "player_entries" list of {uuid, name} next to the codec's "players"
+    // UUID list under the given tag ("exclusions" or "inclusions"). The extra key is only
+    // used for the transient network payload and is ignored when authority data is saved.
+    private static void augmentExclusionPlayerNames(MinecraftServer server, NbtCompound root, String key) {
+        if (!root.contains(key, NbtElement.COMPOUND_TYPE)) return;
+        var tag = root.getCompound(key);
+        if (!tag.contains("players", NbtElement.LIST_TYPE)) return;
+
+        var playersList = tag.getList("players", NbtElement.STRING_TYPE);
+        var entries = new net.minecraft.nbt.NbtList();
+        for (int i = 0; i < playersList.size(); i++) {
+            String uuidStr = playersList.getString(i);
+            var entry = new NbtCompound();
+            entry.putString("uuid", uuidStr);
+            entry.putString("name", resolvePlayerName(server, uuidStr));
+            entries.add(entry);
+        }
+        tag.put("player_entries", entries);
+    }
+
+    // UUID -> best-effort username. Falls back to the online player list, then "unknown".
+    private static String resolvePlayerName(MinecraftServer server, String uuidStr) {
+        try {
+            var uuid = java.util.UUID.fromString(uuidStr);
+            var cached = server.getUserCache().getByUuid(uuid);
+            if (cached.isPresent()) {
+                return cached.get().getName();
+            }
+            var online = server.getPlayerManager().getPlayer(uuid);
+            if (online != null) {
+                return online.getName().getString();
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        return "unknown";
+    }
+
+    // Accepts either a raw UUID or a username and resolves it to a UUID.
+    // Returns null when the value can't be resolved.
+    private static java.util.UUID resolvePlayerUuid(MinecraftServer server, String value) {
+        try {
+            return java.util.UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+        }
+        var cached = server.getUserCache().findByName(value);
+        if (cached.isPresent()) {
+            return cached.get().getId();
+        }
+        var online = server.getPlayerManager().getPlayer(value);
+        if (online != null) {
+            return online.getUuid();
+        }
+        return null;
     }
 
     private static void handleAddAuthority(ServerPlayerEntity player, Leukocyte leukocyte, NbtCompound data) {
@@ -318,6 +380,10 @@ public final class ServerPacketHandler {
             success = switch (type) {
                 case LeukocyteNetworking.EXCLUSION_TYPE_ROLE -> exclusions.addRole(value);
                 case LeukocyteNetworking.EXCLUSION_TYPE_PERMISSION -> exclusions.addPermission(value);
+                case LeukocyteNetworking.EXCLUSION_TYPE_PLAYER -> {
+                    var uuid = resolvePlayerUuid(player.getServer(), value);
+                    yield uuid != null && exclusions.addPlayerByUUID(uuid);
+                }
                 default -> false;
             };
         }
@@ -325,7 +391,7 @@ public final class ServerPacketHandler {
         if (success) {
             sendResult(player, true, "Added " + kind + " '" + value + "' to '" + key + "'.");
         } else {
-            sendResult(player, false, "Failed to add " + kind + " (may already exist).");
+            sendResult(player, false, "Failed to add " + kind + " (may already exist, or player not found).");
         }
     }
 
@@ -355,6 +421,10 @@ public final class ServerPacketHandler {
             success = switch (type) {
                 case LeukocyteNetworking.EXCLUSION_TYPE_ROLE -> exclusions.removeRole(value);
                 case LeukocyteNetworking.EXCLUSION_TYPE_PERMISSION -> exclusions.removePermission(value);
+                case LeukocyteNetworking.EXCLUSION_TYPE_PLAYER -> {
+                    var uuid = resolvePlayerUuid(player.getServer(), value);
+                    yield uuid != null && exclusions.removePlayerByUUID(uuid);
+                }
                 default -> false;
             };
         }
@@ -362,7 +432,7 @@ public final class ServerPacketHandler {
         if (success) {
             sendResult(player, true, "Removed " + kind + " '" + value + "' from '" + key + "'.");
         } else {
-            sendResult(player, false, "Failed to remove " + kind + " (may not exist).");
+            sendResult(player, false, "Failed to remove " + kind + " (may not exist, or player not found).");
         }
     }
 
