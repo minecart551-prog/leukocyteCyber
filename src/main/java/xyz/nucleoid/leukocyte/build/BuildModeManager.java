@@ -11,6 +11,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
+import xyz.nucleoid.leukocyte.integration.ArmourersWorkshopIntegration;
 
 import java.util.*;
 
@@ -122,6 +123,15 @@ public final class BuildModeManager {
     }
 
     private static boolean enterBuildModeVerified(ServerPlayerEntity player, BuildArea area) {
+        // Every way into build mode funnels through here, so this is the one place the check
+        // belongs: putting it in verifyAndEnter would let the async account-verification path
+        // slip past it.
+        if (ArmourersWorkshopIntegration.hasCosmetics(player)) {
+            player.sendMessage(Text.literal(
+                "§cRemove your Armourer's Workshop cosmetics before entering build mode!"), false);
+            return false;
+        }
+
         var returnPos = player.getBlockPos().mutableCopy();
         var returnWorld = player.getWorld().getRegistryKey();
         var savedGameMode = player.interactionManager.getGameMode();
@@ -163,6 +173,7 @@ public final class BuildModeManager {
         var player = server.getPlayerManager().getPlayer(uuid);
         if (player != null) {
             player.getInventory().clear();
+            var cosmeticsCleared = ArmourersWorkshopIntegration.clearCosmetics(player);
             player.changeGameMode(builder.savedGameMode());
             xyz.nucleoid.leukocyte.network.ServerBuildPacketHandler.sendBuildModeStatus(player, false);
 
@@ -176,6 +187,9 @@ public final class BuildModeManager {
             }
 
             player.sendMessage(Text.literal("§aBuild mode disabled. Inventory cleared."), false);
+            if (cosmeticsCleared) {
+                player.sendMessage(Text.literal("§7Armourer's Workshop cosmetics removed."), false);
+            }
         }
 
         return true;

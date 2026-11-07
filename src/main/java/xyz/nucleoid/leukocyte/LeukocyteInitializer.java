@@ -11,8 +11,11 @@ import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
@@ -89,6 +92,19 @@ public final class LeukocyteInitializer implements ModInitializer {
                 && !BuildModeManager.isBlockInBuildArea(player, pos)) {
                 player.sendMessage(Text.literal("§cYou can only build inside the build area!"), true);
                 return false;
+            }
+            // A block whose item is on the build-mode blocked list can't be broken there either.
+            // The list already keeps the item out of the inventory, so leaving the placed block
+            // breakable would be a way straight around it. BEFORE is the single choke point for
+            // every break path (creative START_DESTROY_BLOCK and survival STOP both reach
+            // tryBreakBlock), so this one check covers them all.
+            if (BuildModeManager.isInBuildMode(player.getUuid())) {
+                String blockedId = blockedBuildBlockId(state);
+                if (blockedId != null) {
+                    player.sendMessage(
+                        Text.literal("§c'" + blockedId + "' is blocked in build mode!"), true);
+                    return false;
+                }
             }
             if (!BuildModeManager.isInBuildMode(player.getUuid())
                 && !player.hasPermissionLevel(4)
@@ -219,6 +235,24 @@ public final class LeukocyteInitializer implements ModInitializer {
             }
         }
         return false;
+    }
+
+    // The block's item id when that item is on the build-mode blocked list, otherwise null.
+    // Goes through Item.fromBlock rather than matching ids as strings: the mapping is the real
+    // BlockItem registry, which matters because block and item ids are not always the same —
+    // AW's `skinnable` block carries the item `armourers_workshop:skin`, so string-matching
+    // would leave skinnable walls breakable. Blocks with no item form (Item.fromBlock yields
+    // AIR) can never be on an item list, so they stay breakable.
+    private static String blockedBuildBlockId(BlockState state) {
+        if (server == null) return null;
+        var blocked = LeukocyteBuild.get(server.getOverworld()).getGlobalBlockedItems();
+        if (blocked.isEmpty()) return null;
+
+        var item = Item.fromBlock(state.getBlock());
+        if (item == Items.AIR) return null;
+
+        String itemId = Registries.ITEM.getId(item).toString();
+        return blocked.contains(itemId) ? itemId : null;
     }
 
     private static boolean isGraveBlock(net.minecraft.world.WorldView world, net.minecraft.util.math.BlockPos pos) {
