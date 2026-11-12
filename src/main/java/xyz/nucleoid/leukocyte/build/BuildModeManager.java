@@ -92,7 +92,15 @@ public final class BuildModeManager {
         var build = LeukocyteBuild.get(server.getOverworld());
         String playerName = player.getName().getString();
 
-        if (build.getGlobalBlockedPlayers().contains(playerName)) {
+        // A name on this area's *enabled* whitelist is an explicit grant from an admin, so it
+        // outranks both gates below: the global block list, and the Mojang account check that
+        // rejects cracked/offline accounts. This is what lets a globally blocked player, or a
+        // cracked player, enter an area that has deliberately whitelisted them. When the
+        // whitelist is off, or the name is missing from it, this stays false and both gates
+        // behave exactly as before.
+        boolean whitelistedHere = area.whitelistEnabled() && area.whitelist().contains(playerName);
+
+        if (build.getGlobalBlockedPlayers().contains(playerName) && !whitelistedHere) {
             player.sendMessage(Text.literal("§cYou are blocked from using build mode!"), false);
             return;
         }
@@ -102,11 +110,14 @@ public final class BuildModeManager {
             return;
         }
 
-        if (player.hasPermissionLevel(4) || build.isCrackedWhitelisted(playerName)) {
+        if (player.hasPermissionLevel(4) || build.isCrackedWhitelisted(playerName) || whitelistedHere) {
             enterBuildModeVerified(player, area);
             return;
         }
 
+        // Only players with no enabled-whitelist entry ever reach account verification — a
+        // whitelisted name already returned above, which is precisely what lets a cracked
+        // account into the areas that have listed it.
         var uuid = player.getUuid();
         AccountVerifier.verify(playerName).thenAccept(result -> server.execute(() -> {
             var online = server.getPlayerManager().getPlayer(uuid);
