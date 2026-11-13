@@ -9,21 +9,21 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import xyz.nucleoid.leukocyte.util.SugarContainerRule;
+import xyz.nucleoid.leukocyte.util.ContainerInsertRule;
 
 @Mixin(ScreenHandler.class)
 public class ScreenHandlerMixin {
     @Inject(method = "onSlotClick", at = @At("HEAD"), cancellable = true)
-    private void leukocyte$restrictSugarInsertion(int slotIndex, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {
+    private void leukocyte$restrictBlockedInsertion(int slotIndex, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {
         ScreenHandler self = (ScreenHandler) (Object) this;
-        if (!SugarContainerRule.shouldBlockClick(self, slotIndex, button, actionType, player)) {
+        String message = ContainerInsertRule.blockedMessage(self, slotIndex, button, actionType, player);
+        if (message == null) {
             return;
         }
 
         ci.cancel();
         if (player instanceof ServerPlayerEntity serverPlayer) {
-            serverPlayer.sendMessage(
-                Text.literal("§cYou cannot put sugar into ender chests or shulker boxes!"), true);
+            serverPlayer.sendMessage(Text.literal(message), true);
         }
     }
 }
