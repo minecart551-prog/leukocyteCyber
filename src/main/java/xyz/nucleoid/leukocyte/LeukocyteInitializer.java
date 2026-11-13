@@ -171,6 +171,10 @@ public final class LeukocyteInitializer implements ModInitializer {
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (BuildModeManager.isInBuildMode(player.getUuid())) {
                 if (isImmersivePaintingEntity(entity)) return ActionResult.PASS;
+                // Same exception as the use callback above: builders need to be able to break
+                // a creative mannequin they placed. AW only allows creative players to damage
+                // this variant, and build mode already runs in creative.
+                if (isArmourersCreativeMannequin(entity)) return ActionResult.PASS;
                 player.sendMessage(Text.literal("§cYou cannot attack while in build mode!"), true);
                 return ActionResult.FAIL;
             }
