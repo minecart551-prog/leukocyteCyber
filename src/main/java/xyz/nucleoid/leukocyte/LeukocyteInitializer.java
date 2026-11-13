@@ -180,6 +180,11 @@ public final class LeukocyteInitializer implements ModInitializer {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (BuildModeManager.isInBuildMode(player.getUuid())) {
                 if (isImmersivePaintingEntity(entity)) return ActionResult.PASS;
+                // AW's creative mannequin is a build prop: builders need to right-click it to
+                // open its wardrobe and dress it. Build mode already runs in creative, which is
+                // exactly what AW's isUsableBy() requires for this variant. Matched on the
+                // registry id so leukocyte needs no dependency on AW (unknown ids never match).
+                if (isArmourersCreativeMannequin(entity)) return ActionResult.PASS;
                 player.sendMessage(Text.literal("§cYou cannot interact with entities in build mode!"), true);
                 return ActionResult.FAIL;
             }
@@ -264,5 +269,11 @@ public final class LeukocyteInitializer implements ModInitializer {
     private static boolean isImmersivePaintingEntity(net.minecraft.entity.Entity entity) {
         var id = net.minecraft.registry.Registries.ENTITY_TYPE.getId(entity.getType());
         return id.getNamespace().equals("immersive_paintings");
+    }
+
+    private static boolean isArmourersCreativeMannequin(net.minecraft.entity.Entity entity) {
+        var id = net.minecraft.registry.Registries.ENTITY_TYPE.getId(entity.getType());
+        return id.getNamespace().equals("armourers_workshop")
+            && id.getPath().equals("mannequin-creative");
     }
 }
